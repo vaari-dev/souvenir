@@ -215,9 +215,10 @@ commit, with the commit baked in (`GIT_SHA`, shown in the footer) and a
 Sigstore provenance attestation signed by the workflow's identity. A member
 who wants to check writes to `CONTACT_EMAIL` naming the build in the footer
 and gets the source for that commit and the attestation
-(`gh attestation verify oci://ghcr.io/pungoyal-labs/souvenir:<sha7> --owner pungoyal-labs`
-proves the image came from it). Verification is on request, not public, so
-the repository can be private.
+(`gh attestation verify oci://ghcr.io/vaari-dev/souvenir:<sha7> --owner vaari-dev`
+proves the image came from it; a build from before the repository moved,
+2026-09-30, is `ghcr.io/pungoyal-labs/souvenir` with `--owner pungoyal-labs`).
+Verification is on request, not public, so the repository can be private.
 
 ## Quality gates
 
