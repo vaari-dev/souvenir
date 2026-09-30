@@ -523,7 +523,9 @@ provenance and an SBOM, and signs a Sigstore provenance attestation with the
 workflow's OIDC identity. The footer names the build; `/privacy` says how a
 member checks it: write to `CONTACT_EMAIL` naming the build and receive the
 source for that commit and the attestation (`gh attestation verify
-oci://<image>:<sha7> --owner pungoyal-labs` ties the image to it).
+oci://<image>:<sha7> --owner vaari-dev` ties the image to it; builds from
+before the repository moved on 2026-09-30 are attested under
+`pungoyal-labs`).
 
 Decided against, 2026-08-25: public verification (the repository may go
 private; a member who asks is the audience that matters), a public crypto

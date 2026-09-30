@@ -31,8 +31,8 @@ Chiang Pai deploy is left running untouched until its trip ends, then
 retired. Nothing migrates; that is the point. What this release needs is
 the new repo's plumbing, not a data cutover:
 
-- Repo: `github.com/pungoyal-labs/souvenir`; images land at
-  `ghcr.io/pungoyal-labs/souvenir` automatically.
+- Repo: `github.com/vaari-dev/souvenir` (moved from `pungoyal-labs`
+  2026-09-30); images land at `ghcr.io/vaari-dev/souvenir` automatically.
 - A new `oracle-cloud` environment, everything fresh: new `AUTH_SECRET`,
   new `POSTGRES_PASSWORD`, `AUTH_URL` naming the new domain, new Google
   OAuth client (consent screen lists `/terms` and `/privacy`; redirect URI
