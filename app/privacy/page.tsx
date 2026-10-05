@@ -14,15 +14,15 @@ export default function PrivacyPage() {
       <h1 className="display text-4xl font-extrabold uppercase tracking-wide">
         Your trip is yours
       </h1>
-      <p className="text-sm text-soft">Last updated 25 August 2026.</p>
+      <p className="text-sm text-soft">Last updated 5 October 2026.</p>
 
       <Section title="In one paragraph">
-        Everything your group writes on a trip — calls, comments, verdicts, bills, the name, the
-        phrasebook — is locked on your phone before it is sent, with a key that only the people on
-        the trip have. We store the locked copies, keep them in order and count them. We cannot read
-        them, and neither can anyone who copies our database, restores a backup of it, or asks us
-        for it. Below is how that works in plain words, what we <em>can</em> see, and how to check
-        us.
+        This is the privacy policy of Souvenir, at souvenir.vaari.dev. Everything your group writes
+        on a trip — calls, comments, verdicts, bills, the name, the phrasebook — is locked on your
+        phone before it is sent, with a key that only the people on the trip have. We store the
+        locked copies, keep them in order and count them. We cannot read them, and neither can
+        anyone who copies our database, restores a backup of it, or asks us for it. Below is how
+        that works in plain words, what we <em>can</em> see, and how to check us.
       </Section>
 
       <Section title="Who is responsible">
@@ -91,6 +91,33 @@ export default function PrivacyPage() {
             debugging.
           </li>
         </ul>
+      </Section>
+
+      <Section title="Signing in with Google">
+        Google is one way in; a passkey is the other, and it needs no Google account at all. When
+        you choose Google, Souvenir asks only for the basic sign-in permissions (<code>openid</code>
+        , <code>email</code>, <code>profile</code>) and uses what comes back for one thing: knowing
+        it is you. It keeps your email address, to find your account next time, and your name, which
+        only the people on your trips see. It does not keep your Google picture, and it never asks
+        for your contacts, your calendar, your Drive or anything else in your Google account.
+        Nothing it gets from Google is sold, handed to anyone else, used for ads, or used to train
+        AI models, and all of it is deleted with your account. You can also cut the link from{" "}
+        <a
+          href="https://myaccount.google.com/connections"
+          className="text-felt hover:underline"
+          rel="noreferrer"
+        >
+          your Google account
+        </a>{" "}
+        at any time. Souvenir's use of information received from Google APIs adheres to the{" "}
+        <a
+          href="https://developers.google.com/terms/api-services-user-data-policy"
+          className="text-felt hover:underline"
+          rel="noreferrer"
+        >
+          Google API Services User Data Policy
+        </a>
+        , including the Limited Use requirements.
       </Section>
 
       <Section title="What we do not keep">
