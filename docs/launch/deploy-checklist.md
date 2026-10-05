@@ -23,7 +23,30 @@ what needs a hand is that environment, and a backup when the schema moves.
    `docker compose run --rm migrate node scripts/stats.ts` still reads the
    trips; open the live trip on a phone that holds the key.
 
-## This release — Souvenir, a fresh start
+## This release — souvenir.vaari.dev
+
+The app moves from `souvenir.jfjf.in` to `souvenir.vaari.dev` (Oct 2026),
+and it is a fresh start again for anyone signed in at the old name. The
+passkey rp id is `AUTH_URL`'s host, so no passkey made at jfjf.in verifies
+at vaari.dev (nor does its PRF keyring backup), and each phone's keyring
+is IndexedDB for the old origin, which the new one cannot read. Nobody
+relied on it yet, so nothing carries over. No migration, no code change:
+
+1. **DNS**: `souvenir.vaari.dev` → the box's address; keep
+   `souvenir.jfjf.in` pointing there too.
+2. **Edge**: `vaari-dev/edge` serves `souvenir.vaari.dev` and answers
+   `souvenir.jfjf.in` with a 308 to it (`deploy/caddy/sites/souvenir.caddy`).
+   Deploy the edge first; Caddy fetches the new certificate itself.
+3. **Google OAuth client**: add the redirect URI
+   `https://souvenir.vaari.dev/api/auth/callback/google`, the authorised
+   domain `vaari.dev`, and the consent screen's `/terms` and `/privacy` at
+   the new name. Drop the jfjf.in ones once the cutover is verified.
+4. **`oracle-cloud` environment**: var `AUTH_URL=https://souvenir.vaari.dev`,
+   then re-run the last deploy job (or push) so the `.env` is re-rendered.
+5. **Verify**: the old name redirects, a new passkey registers at
+   vaari.dev, Google sign-in returns to vaari.dev.
+
+## Earlier release — Souvenir, a fresh start
 
 The rebrand (Aug 2026): the product is **Souvenir**, the play currency is
 **stamps**, and the deploy is a new box with a fresh database — the old
