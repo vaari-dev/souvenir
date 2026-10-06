@@ -32,28 +32,21 @@ at vaari.dev (nor does its PRF keyring backup), and each phone's keyring
 is IndexedDB for the old origin, which the new one cannot read. Nobody
 relied on it yet, so nothing carries over. No migration, no code change:
 
-1. **DNS**: `souvenir.vaari.dev` → the box's address; keep
-   `souvenir.jfjf.in` pointing there too.
-2. **Edge**: `vaari-dev/edge` serves `souvenir.vaari.dev` and answers
-   `souvenir.jfjf.in` with a 308 to it (`deploy/caddy/sites/souvenir.caddy`).
-   Deploy the edge first; Caddy fetches the new certificate itself.
-3. **Google OAuth client**: `vaari.dev` hosts several products that sign
-   in with Google, and Google's branding (app name, logo, links, support
-   email) belongs to a Cloud *project*, not a domain. So Souvenir keeps a
-   Google Cloud project of its own, and every product does the same; none
-   of them shares a consent screen. `vaari.dev` is verified once, as a
-   Search Console domain property (a DNS TXT record), which covers every
-   subdomain, and each project lists `vaari.dev` as an authorised domain.
-   In Souvenir's project, under Branding: app name *Souvenir*, home page
-   `https://souvenir.vaari.dev`, privacy policy
-   `https://souvenir.vaari.dev/privacy`, terms
-   `https://souvenir.vaari.dev/terms`. Under the client, add the redirect
-   URI `https://souvenir.vaari.dev/api/auth/callback/google`. Drop the
-   jfjf.in entries once the cutover is verified.
-4. **`oracle-cloud` environment**: var `AUTH_URL=https://souvenir.vaari.dev`,
-   then re-run the last deploy job (or push) so the `.env` is re-rendered.
-5. **Verify**: the old name redirects, a new passkey registers at
-   vaari.dev, Google sign-in returns to vaari.dev.
+1. **DNS**: `souvenir.vaari.dev` → the box's address.
+2. **Edge**: `vaari-dev/edge` serves `souvenir.vaari.dev`
+   (`deploy/caddy/sites/souvenir.caddy`). Deploy the edge first; Caddy
+   fetches the new certificate itself. `souvenir.jfjf.in` redirected there
+   for the cutover and is no longer served.
+3. **`oracle-cloud` environment**: var `AUTH_URL=https://souvenir.vaari.dev`,
+   then deploy so the `.env` is re-rendered.
+4. **Verify**: the footer names the build, a new passkey registers at
+   vaari.dev, a trip opens.
+
+Google sign-in stays off: production has never set `AUTH_GOOGLE_ID` or
+`AUTH_GOOGLE_SECRET`. Turning it on needs a Google Cloud project of
+Souvenir's own, since a consent screen's branding belongs to a project and
+`vaari.dev` serves other products that sign in with Google; the redirect
+URI is `{AUTH_URL}/api/auth/callback/google`.
 
 ## Earlier release — Souvenir, a fresh start
 
