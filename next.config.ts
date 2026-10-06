@@ -2,12 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Build time, not runtime (lib/env.ts owns process.env for the app): the
-  // build id is the commit, so two builds of one commit agree on every hash.
+  // Read at build time, outside lib/env.ts: one commit, one build id, so hashes agree.
   generateBuildId: () => process.env.GIT_SHA ?? null,
-  // Before trips, the whole app was one table at the root. Old links and
-  // bookmarks land on the trips list, which sends a one-trip member straight
-  // through to the trip that table became.
+  // Old root-level URLs land on the trips list, which forwards a one-trip member.
   async redirects() {
     return [
       { source: "/leaderboard", destination: "/trips", permanent: true },
@@ -20,21 +17,17 @@ const nextConfig: NextConfig = {
       { source: "/member/:id", destination: "/trips", permanent: true },
     ];
   },
-  // Keep pino out of the server bundle: its dynamic requires don't bundle
-  // cleanly, and as an external it gets traced into standalone node_modules,
-  // where `node scripts/migrate.ts` can also resolve it.
+  // pino's dynamic requires don't bundle; as an external it is traced into standalone
+  // node_modules, where `node scripts/migrate.ts` resolves it too.
   serverExternalPackages: ["pino"],
-  // The one runtime image doubles as the migration runner: bundle the
-  // migration SQL, the migrate script (and the lib files it imports), and
-  // drizzle's migrator into the standalone output so the compose `migrate`
-  // service can run `node scripts/migrate.ts` from the same image.
+  // The runtime image also runs migrations (compose `migrate`), so ship the SQL, the script,
+  // and what it imports.
   outputFileTracingIncludes: {
     "*": [
       "./drizzle/**",
       "./scripts/**",
       "./lib/**",
-      // Raw packages the migrate script imports at runtime; the app's own
-      // bundle compiles these in, so tracing wouldn't copy them by itself.
+      // Imported raw by the migrate script; the app bundle compiles them in, so tracing skips them.
       "./node_modules/drizzle-orm/**",
       "./node_modules/zod/**",
       "./node_modules/pg/**",

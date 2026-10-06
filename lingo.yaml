@@ -1,16 +1,13 @@
-# Every flavored string the app can speak, keyed by lingo. Members pick theirs
-# in their profile (members.lingo); "english" is the default and the reference
-# spelling — every other lingo must define exactly the same fields.
-#
-# Edit this file and the app follows: `pnpm lingo:gen` regenerates
-# lib/lingo.data.ts, and `pnpm dev` / `pnpm build` run it for you.
+# Every flavored string, keyed by lingo. "english" is the default and the reference: every
+# other lingo must define exactly its fields. `pnpm lingo:gen` compiles this to
+# lib/lingo.data.ts.
 #
 # Placeholders are substituted at render time:
 #   leaderboardSub  {min}     minimum resolved predictions to be ranked
 #   youWon/youLost  {amount}  the formatted amount, e.g. "12 stamps"
 #
-# Buttons, nav, and rule errors stay plain everywhere — personality lives in
-# headings, empty states, asides, result lines, and placeholders.
+# Buttons, nav, and rule errors stay plain; personality lives in headings, empty states, asides,
+# result lines, and placeholders.
 english:
   name: "Plain English"
   register: "plain English"

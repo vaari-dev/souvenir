@@ -1,11 +1,5 @@
-// The model, for the two things in this app that need one: polishing a
-// prediction draft before it is published, and interpreting between the group
-// and whoever they are standing in front of.
-//
-// Any Anthropic-compatible API (configured for MiniMax M3 through
-// LLM_BASE_URL / LLM_API_KEY / LLM_MODEL). Both features are optional and
-// hidden when it is unset — the game does not depend on this, and the talk
-// page still has its phrasebook.
+// Draft polishing and interpreting, over any Anthropic-compatible API. Both features are
+// optional and hidden when unset.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "./env.ts";
@@ -13,13 +7,10 @@ import { logger } from "./logger.ts";
 
 export const llmEnabled = Boolean(env.LLM_BASE_URL && env.LLM_API_KEY);
 
-/** Somebody is waiting on a phone; a model that has not answered by now is not going to. */
+// Somebody is waiting on a phone.
 const TIMEOUT_MS = 30_000;
 
-/**
- * One request, one JSON object back. Both prompts ask for bare JSON and both
- * get fences or preamble now and then, so the outer object is cut out here.
- */
+/** Models sometimes wrap the JSON in fences or preamble, so the outer object is cut out. */
 async function askForJson(
   what: string,
   system: string,
@@ -61,7 +52,6 @@ async function askForJson(
   return parsed as Record<string, unknown>;
 }
 
-/** A string field, trimmed and capped; empty when absent. */
 function field(obj: Record<string, unknown>, key: string, max: number): string {
   const value = obj[key];
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -125,54 +115,28 @@ export async function polishMarketDraft(
 
 // --- Interpreting --------------------------------------------------------
 
-/**
- * One utterance, said again in the other language.
- *
- * Deliberately not the polish prompt with a different instruction glued on.
- * That one is talking to the group and matches whoever's lingo they picked;
- * this one is talking to a stranger, and a sentence with South Bangalore
- * banter pushed through it is not a favour to anybody. Plain, spoken, polite.
- */
+/** Deliberately not the polish prompt: this talks to a stranger, so plain, spoken, polite. */
 export interface Interpretation {
-  /** The sentence to say, in the target language. */
   text: string;
-  /** Romanisation with tone or stress marks — empty when the target is Latin. */
+  /** Empty when the target is Latin. */
   roman: string;
-  /**
-   * What the translation literally says, back in the speaker's own language.
-   * The one guard against a confident mistranslation: they read it before the
-   * phone says anything on their behalf.
-   */
+  /** Back in the speaker's language: the one guard against a confident mistranslation. */
   literal: string;
-  /** Anything the speaker should know — an idiom, a register, a missing word. */
   note?: string;
 }
 
 export interface InterpretRequest {
-  /** What was heard, in whatever language it was said in. */
   text: string;
-  /** The language it is going into, named as a person would name it. */
   to: string;
-  /** The language it came from. */
   from: string;
-  /** Where this conversation is happening, which is what makes it idiomatic. */
   place: string;
-  /** True when the target is not written in the Latin alphabet. */
+  /** True when the target is not Latin script. */
   romanise: boolean;
-  /**
-   * The rule for the speaker's polite ending, where the target language has
-   * one (lib/talk.ts `Particle.prompt`). Most languages do not, and asking a
-   * model to invent one for a language without them produces confident
-   * nonsense — so it is a sentence the destination wrote, or nothing.
-   */
+  /** lib/talk.ts `Particle.prompt`. Never invented for a language without one. */
   politeness?: string;
 }
 
-/**
- * The system half, which is stable for a whole conversation — the pair and the
- * place do not change between turns, so the prompt prefix stays identical and
- * only the utterance moves.
- */
+/** Stable for a whole conversation, so the prompt prefix stays identical between turns. */
 function interpretSystem(req: InterpretRequest): string {
   const rules = [
     "- Translate the meaning as it would be said out loud, not word by word. Everyday spoken language as actually used there, not textbook phrasing and not written formal register.",
@@ -197,13 +161,12 @@ Respond with ONLY a JSON object, no markdown fences:
   }, "literal": "what your translation literally says, in ${req.from}", "note": "usually omitted; one short sentence only when the speaker needs to know something"}`;
 }
 
-/** Interpret one utterance, in whichever direction the pair is pointed. */
 export async function interpret(req: InterpretRequest): Promise<Interpretation> {
   const obj = await askForJson(
     "utterance interpreted",
     interpretSystem(req),
     `Target language: ${req.to}\n\nUtterance: ${req.text}`,
-    // A spoken sentence and its gloss. Anything longer is the model rambling.
+    // A sentence and its gloss; longer is rambling.
     700,
     { to: req.to },
   );
@@ -211,8 +174,7 @@ export async function interpret(req: InterpretRequest): Promise<Interpretation> 
   if (!text) throw new Error("The interpreter came back with nothing to say.");
   return {
     text,
-    // A romanisation of Latin text is the text again; drop it rather than
-    // print every line twice.
+    // Romanising Latin text just repeats it.
     roman: req.romanise ? field(obj, "roman", 600) : "",
     literal: field(obj, "literal", 600),
     note: field(obj, "note", 600) || undefined,

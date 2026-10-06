@@ -46,7 +46,6 @@ export function TripForm({
   initial,
   creatorId,
 }: {
-  /** The signed-in member, who seals the first event on a new trip. */
   creatorId?: string;
   initial?: TripFormInitial;
 }) {

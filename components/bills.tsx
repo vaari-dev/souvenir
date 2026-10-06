@@ -20,20 +20,16 @@ import { EmptyState, tone } from "./ui";
 import { useAct } from "./use-act";
 
 /**
- * The /bills page below the heading: who's up and down, the shortest way to
- * settle it, and every bill on the record. Real money, never the pie ledger —
- * and sealed: every bill is a `bill.rev` event replayed here. With a rate for
- * the day the whole trip is settled in the home currency, foreign spending
- * read at that rate plus the forex charge (lib/fx); without one, each
- * currency settles on its own.
+ * The /bills page below the heading: who's up and down, the shortest way to settle, and every
+ * bill on the record. Real money, never the pie ledger, and sealed: each bill is a `bill.rev`
+ * event. With a rate for the day the trip settles in the home currency (foreign spending at that
+ * rate plus the forex charge, lib/fx); without one, each currency settles on its own.
  */
 export function Bills({
   currencies,
   rate = null,
 }: {
-  /** The trip's one or two currencies, the default first. */
   currencies: readonly Currency[];
-  /** Today's foreign → home rate, or null when there is none to be had. */
   rate?: FxRate | null;
 }) {
   const { me, lingo, t, roster: members, people, state, append } = useOpenTrip();
@@ -97,7 +93,6 @@ export function Bills({
     byDate.set(bill.onDate, list);
   }
 
-  /** The plan's line for one transfer, with the button that records it. */
   const transferRow = (
     transfer: { fromId: string; toId: string; from: Person; to: Person; amountC: number },
     currency: Currency,
@@ -381,7 +376,6 @@ export function Bills({
   );
 }
 
-/** Record any repayment by hand — the plan buttons cover the common case. */
 function PaymentForm({
   members,
   meId,

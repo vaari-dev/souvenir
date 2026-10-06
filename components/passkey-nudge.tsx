@@ -3,10 +3,8 @@ import { AddPasskeyButton } from "@/components/passkeys";
 import { routes } from "@/lib/routes";
 
 /**
- * Shown to every member who hasn't enrolled yet, on every page, until they do.
- * Google sign-in is a fallback, not the plan, and this is the one thing they
- * have to do about it — so the button is right here rather than a page away. Plain language in
- * every lingo: this is a notice, not flavour.
+ * For every member who hasn't enrolled a passkey, on every page: Google sign-in is a fallback,
+ * so the button is here, not a page away. Plain language in every lingo: a notice, not flavour.
  */
 export function PasskeyNudge({ needsPicture }: { memberId?: string; needsPicture: boolean }) {
   return (

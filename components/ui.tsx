@@ -1,11 +1,9 @@
 // Furniture shared across pages, so the same thing looks the same everywhere.
 
-/** Up / down / flat coloring for a signed amount. */
 export function tone(deltaC: number): string {
   return deltaC > 0 ? "text-felt" : deltaC < 0 ? "text-no-deep" : "text-soft";
 }
 
-/** The dashed slip shown where a list would be, if anyone had acted yet. */
 export function EmptyState({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-dashed border-line bg-surface p-8 text-center">

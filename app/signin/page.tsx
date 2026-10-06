@@ -15,11 +15,9 @@ export default async function SignInPage({
 }) {
   const { error, next: rawNext } = await searchParams;
   const next = safeNext(rawNext);
-  // The member, not just the cookie: a signed session for a member who is no
-  // longer in this database (deleted, or minted against another database on
-  // the same host) would otherwise bounce /signin -> /trips -> /signin forever,
-  // since every member page checks the row exists. Signing in again overwrites
-  // the stale cookie.
+  // The member, not just the cookie: a session for a member absent from this database (deleted,
+  // or minted against another on the same host) would bounce /signin -> /trips -> /signin
+  // forever. Signing in overwrites the stale cookie.
   const me = await currentMember();
   if (me) redirect(next === "/" ? routes.trips : next);
 
@@ -80,8 +78,7 @@ export default async function SignInPage({
           className="mt-4 space-y-2 border-t border-line pt-4 text-left"
           action={async (formData: FormData) => {
             "use server";
-            // Re-checked on the server: the flag is the only thing standing
-            // between this form and a passwordless login in production.
+            // Re-checked on the server: the only guard against passwordless login in production.
             if (!env.AUTH_DEV_LOGIN) redirect(routes.signin);
             const email = String(formData.get("email") ?? "")
               .trim()

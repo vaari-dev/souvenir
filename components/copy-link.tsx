@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-/** Copy a link that is whole as given. */
 export function CopyLink({ url, compact = false }: { url: string; compact?: boolean }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const copy = () =>

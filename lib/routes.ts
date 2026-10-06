@@ -1,5 +1,3 @@
-// Every path in the app, in one place. Pure strings.
-
 export const routes = {
   home: "/",
   signin: "/signin",
@@ -26,7 +24,6 @@ export const routes = {
   settings: (tripId: string) => `/t/${tripId}/settings`,
 } as const;
 
-/** A sign-in that comes back to `next` afterwards. */
 export function signInThen(next: string): string {
   return `${routes.signin}?next=${encodeURIComponent(next)}`;
 }

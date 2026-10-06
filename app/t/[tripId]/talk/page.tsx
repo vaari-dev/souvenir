@@ -8,8 +8,8 @@ import { requireTrip } from "@/lib/session";
 import { canSay } from "@/lib/speech";
 import { pairFor } from "@/lib/talk";
 
-// The one page pointed at somebody outside the group. Nothing here is recorded
-// unless a member keeps a phrase, and that lands in the sealed log like anything else.
+// Pointed at somebody outside the group. Nothing is recorded unless a member keeps a phrase,
+// which lands in the sealed log.
 export default async function TalkPage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params;
   const { me, trip } = await requireTrip(tripId);

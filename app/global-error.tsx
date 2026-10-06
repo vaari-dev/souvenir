@@ -1,8 +1,7 @@
 "use client";
 
-// When the root layout itself throws there is no layout left to stand in:
-// this renders its own document, with no stylesheet, so the look is the
-// palette from globals.css written inline. Reported like any other boundary.
+// The root layout itself threw: this renders its own document with no stylesheet, so the
+// globals.css palette is inline. Reported like any other boundary.
 
 import { useEffect } from "react";
 import { sendReport } from "@/components/error-reporter";

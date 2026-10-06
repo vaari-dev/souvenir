@@ -6,11 +6,7 @@ export interface AvatarMember {
   avatarUpdatedAt: Date | null;
 }
 
-/**
- * A member's picture: their upload if they have one, otherwise a monogram
- * generated from their name and id. Everyone has a face from the moment they
- * join — nothing is fetched from anywhere else.
- */
+/** Their upload, else a monogram from their name and id; nothing is fetched elsewhere. */
 export function Avatar({ member, size = 32 }: { member: AvatarMember; size?: number }) {
   const src = avatarSrc(member);
   if (src) {

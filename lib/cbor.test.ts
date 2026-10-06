@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CborError, type CborMap, decodeCbor, decodeCborAt } from "./cbor.ts";
 
-/** Vectors below are written as hex, mostly straight from RFC 8949 Appendix A. */
+// Hex vectors, mostly from RFC 8949 Appendix A.
 const cbor = (hex: string) => Buffer.from(hex, "hex");
 
 describe("decodeCbor", () => {
@@ -92,8 +92,7 @@ describe("decodeCbor", () => {
 
 describe("decodeCborAt", () => {
   it("decodes from an offset and reports where the item ended", () => {
-    // How the COSE key is found inside authenticator data: skip a prefix, read
-    // one item, and learn where the extensions would begin.
+    // Finding the COSE key inside authenticator data.
     const buf = cbor("deadbeef" + "a201020304" + "cafe");
     const { value, offset } = decodeCborAt(buf, 4);
     expect(value).toEqual(

@@ -6,9 +6,8 @@ import { routes } from "@/lib/routes";
 import { ActError, useAct } from "./use-act";
 
 /**
- * For members who predate the gate: once, on every page, until they tick it.
- * Plain language — this is a notice, not flavour — and it blocks nothing; it
- * only records the moment they agreed.
+ * For members who predate the gate: shown on every page until they tick it. Plain language, and
+ * it blocks nothing; it only records when they agreed.
  */
 export function TermsNudge() {
   const { pending, error, act } = useAct("Try again.");

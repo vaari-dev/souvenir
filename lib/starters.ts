@@ -1,17 +1,12 @@
-// The first predictions a trip offers to open, before anyone has thought of
-// one. A new table is an empty table, and empty tables stay empty; these are
-// the questions every friend trip already argues about — who actually books,
-// who is late, whose plan survives contact — written so that one tap puts a
-// real, resolvable claim on the record.
+// The first predictions a trip offers to open, so a new table is not an empty one: the questions
+// every friend trip argues about, written so one tap puts a resolvable claim on the record.
 //
-// Pure: a trip and a roster in, a list of drafts out. The member who opens one
-// can edit it before it goes live, so the criteria only have to be fair, not
-// final. Covered by starters.test.ts.
+// Pure. The member who opens a draft can edit it, so the criteria only have to be fair, not final.
 
 import { daysBetween, type TripLike, tripPhase } from "./trips.ts";
 
 export interface StarterDraft {
-  /** A short key, so the UI can remember which ones were already opened. */
+  /** So the UI can remember which were already opened. */
   key: string;
   question: string;
   criteria: string;
@@ -20,26 +15,21 @@ export interface StarterDraft {
 export interface StarterContext extends TripLike {
   name: string;
   place: string;
-  /** The roster, most recently joined last. */
   members: { id: string; name: string }[];
-  /** The viewer: never the subject of their own starter. */
+  /** Never the subject of their own starter. */
   viewerId: string;
-  /** Today, as an ISO calendar day. */
   today: string;
 }
 
-/** Somebody else on the roster, deterministically — the n-th other member. */
+// The n-th other member, deterministically.
 function other(ctx: StarterContext, n: number): { id: string; name: string } | null {
   const others = ctx.members.filter((m) => m.id !== ctx.viewerId);
   if (others.length === 0) return null;
   return others[n % others.length];
 }
 
-/**
- * Drafts for this trip, in the order they are worth opening. Before the trip
- * they are about whether it happens; during, about what happens; after, the
- * only question left is who is square.
- */
+// In the order worth opening. Before the trip: whether it happens; during: what happens; after:
+// who is square.
 export function starters(ctx: StarterContext): StarterDraft[] {
   const phase = tripPhase(ctx, ctx.today);
   const out: StarterDraft[] = [];

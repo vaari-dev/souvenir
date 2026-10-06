@@ -7,7 +7,6 @@ import { timeUntil } from "@/lib/format";
 import { ShutLink } from "./rekey-list";
 import { useAct } from "./use-act";
 
-/** Any organiser of the trip, or the member whose seat the link opens. */
 export function ShutRecovery({
   tripId,
   code,
@@ -20,7 +19,6 @@ export function ShutRecovery({
   return <ShutLink label={label} shut={() => revokeRecoveryAction(tripId, code)} />;
 }
 
-/** The organiser's half of a recovery, on the member's page. The link restores the seat; the key comes by a key link afterwards. */
 export function RecoveryPanel({
   tripId,
   memberId,

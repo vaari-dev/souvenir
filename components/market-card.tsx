@@ -18,7 +18,6 @@ export function MarketCard({
 }: {
   view: MarketView;
   tripId: string;
-  /** For resolved predictions: the viewer's net result, if they took part. */
   myProfitC?: number;
   lingo?: string;
 }) {

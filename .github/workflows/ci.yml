@@ -29,15 +29,12 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          # Satisfies lib/env.ts validation during page-data collection; the
-          # running server always gets its real secret from the deploy .env.
+          # Placeholder for lib/env.ts at build; the server gets its real secret from the deploy .env.
           AUTH_SECRET: insecure-build-time-placeholder
 
-  # Runs beside `verify`, not after it: the two builds are independent, and
-  # nothing unverified can ship because `deploy` waits on both. A pull request
-  # builds the image and throws it away — nothing else proves the Dockerfile
-  # and the standalone trace still work, so a break used to surface on main,
-  # after the merge. PUSH is that one decision; every step below reads it.
+  # Beside `verify`, not after it; `deploy` waits on both. A pull request builds the image and
+  # discards it, the only proof the Dockerfile and standalone trace work. PUSH is that one
+  # decision; every step below reads it.
   image:
     runs-on: ubuntu-24.04-arm
     env:
@@ -65,17 +62,13 @@ jobs:
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           echo "epoch=$(git log -1 --format=%ct)" >> "$GITHUB_OUTPUT"
-      # Reproducible where the tooling allows: the build id is the commit, layer
-      # timestamps are the commit's, and the image carries the sha it was built
-      # from so /privacy can name it. The attestation below is what a member
-      # checks: `gh attestation verify oci://<image>:<tag> --owner <owner>`
-      # proves the image was built by this workflow from that commit.
+      # Reproducible where the tooling allows: build id and layer timestamps are the commit's,
+      # and the image carries its sha for /privacy. A member checks the attestation with
+      # `gh attestation verify oci://<image>:<tag> --owner <owner>`.
       #
-      # No layer cache on the pushed build: `rewrite-timestamp` stamps every
-      # layer with the commit's date, so nothing exported is reusable by the
-      # next commit and `cache-to: type=gha,mode=max` spent 51s a run writing
-      # blobs no run ever restored. Don't re-add it without checking the log
-      # for `CACHED`.
+      # No layer cache: `rewrite-timestamp` stamps every layer with the commit date, so nothing
+      # exported is reusable and `cache-to` only cost time. Check the log for `CACHED` before
+      # re-adding it.
       - name: Build the image (arm64, matching the OCI host) — pushed unless this is a PR
         id: build
         uses: docker/build-push-action@v7
@@ -111,8 +104,7 @@ jobs:
     #            (the box's host keys, `ssh-keyscan` format — the deploy
     #            refuses a host that doesn't match), DEPLOY_DIR,
     #            APP_PORT, APP_BIND, DB_PORT, AUTH_URL, DOCKER_NETWORK
-    #            (repo-level: the external network the app joins so the
-    #            box's proxy can reach it),
+    #            (the external network the proxy shares with the app),
     #            RANKED_MIN_RESOLVED, CONTACT_EMAIL, LLM_BASE_URL, LLM_MODEL,
     #            SPEECH_BASE_URL, SPEECH_TTS_MODEL, SPEECH_GROUP_ID, SPEECH_VOICES,
     #            SPEECH_VOICE_US, SPEECH_VOICE_THEM, SPEECH_VOICE_THEM_PITCH,
@@ -129,14 +121,10 @@ jobs:
       group: deploy-oracle-cloud
       cancel-in-progress: false
     steps:
-      # A single SSH step does the whole deploy, so the connection inputs are
-      # written once rather than repeated per step. Plain ssh, not an action:
-      # SSH_KNOWN_HOSTS pins the box's host keys and StrictHostKeyChecking
-      # refuses anything else, so the deploy cannot be redirected to a host
-      # that isn't ours. The host needs no checkout: it pulls the compose file
-      # for this exact commit straight from the API, and renders .env from the
-      # environment. The `export %q` prelude is how the runner's env crosses
-      # the wire without a remote shell re-parsing unquoted values.
+      # One SSH step does the whole deploy. Plain ssh, not an action: SSH_KNOWN_HOSTS pins the
+      # host keys and StrictHostKeyChecking refuses anything else, so the deploy cannot be
+      # redirected. The host needs no checkout. The `export %q` prelude carries the runner's env
+      # across without the remote shell re-parsing it.
       - name: Deploy over SSH
         env:
           APP_IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
@@ -163,8 +151,7 @@ jobs:
             cat <<'DEPLOY_SCRIPT'
           set -euo pipefail
 
-          # DEPLOY_DIR may not exist on a fresh host. Parents like /opt are
-          # root-owned, so fall back to sudo and hand the dir to the SSH user.
+          # DEPLOY_DIR may not exist on a fresh host; parents like /opt are root-owned, so sudo.
           if [ ! -d "$DEPLOY_DIR" ]; then
             mkdir -p "$DEPLOY_DIR" 2>/dev/null || {
               sudo mkdir -p "$DEPLOY_DIR"
@@ -173,19 +160,15 @@ jobs:
           fi
           cd "$DEPLOY_DIR"
 
-          # Take the compose file from the exact commit being deployed, so the
-          # host can never drift from the repo. The run's own GITHUB_TOKEN
-          # authenticates, which keeps working if the repo goes private.
+          # The compose file comes from the deployed commit, so the host cannot drift.
           curl -fsSL \
             -H "Authorization: Bearer $GHCR_TOKEN" \
             -H "Accept: application/vnd.github.raw" \
             "https://api.github.com/repos/$REPO/contents/docker-compose.yml?ref=$SHA" \
             -o docker-compose.yml
 
-          # .env is rendered fresh on every deploy from the oracle-cloud
-          # environment — edit a var/secret there and redeploy, never edit the
-          # server by hand. Quoted heredoc: values are written verbatim, and
-          # GitHub masks the secret values in the run log.
+          # .env is rendered on every deploy from the oracle-cloud environment: edit there, never
+          # on the server. Quoted heredoc writes values verbatim; GitHub masks secrets in the log.
           umask 077
           cat > .env <<'ENV_EOF'
           APP_PORT=${{ vars.APP_PORT }}
@@ -219,11 +202,8 @@ jobs:
           docker compose pull app
           docker compose up -d --no-build app
 
-          # `up -d` returns once the container has STARTED, which is not the
-          # same as serving: an app that boots and crashes (bad env, failed
-          # DB connect) would otherwise deploy green. Poll until it answers,
-          # and fail the run with its logs if it never does. /signin is the
-          # one page that needs no session.
+          # `up -d` returns on start, not on serving: a boot-then-crash would deploy green. Poll
+          # /signin (needs no session) and fail with logs if it never answers.
           probe="http://127.0.0.1:${APP_PORT:-3000}/signin"
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 5 -o /dev/null "$probe"; then

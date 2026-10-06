@@ -6,7 +6,6 @@ import { createCredential } from "@/components/passkeys";
 import { routes } from "@/lib/routes";
 import { useAct } from "./use-act";
 
-/** Coming back: a new passkey on the seat the link names, nothing to pick. */
 export function RecoverForm({ code, name }: { code: string; name: string }) {
   const router = useRouter();
   const { pending, error, act } = useAct();

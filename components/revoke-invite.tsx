@@ -3,7 +3,6 @@
 import { revokeInviteAction } from "@/app/actions";
 import { ActError, useRefreshingAct } from "./use-act";
 
-/** Kill a link that hasn't been used — a misdirected invite shouldn't linger a week. */
 export function RevokeInvite({ code }: { code: string }) {
   const { pending, error, act } = useRefreshingAct();
 

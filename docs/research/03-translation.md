@@ -1,62 +1,41 @@
-# Real-time two-way speech interpretation for travellers (August 2026)
+# Two-way speech interpretation for travellers (August 2026)
 
-## 1. Incumbents
+## Incumbents
 
-**Google Translate.** The free app's Conversation tab was rebuilt on 9 June 2026 around *Gemini 3.5 Live Translate*: audio-to-audio (no STT→MT→TTS chain), auto-detects 70+ languages, switches output language by who is speaking, keeps the speaker's pacing and pitch, "a few seconds behind". Global rollout, free. Hindi supported; Thai and Vietnamese in the selector; Indonesian "expanding". Offline packs (59 languages incl. Thai, Vietnamese, Hindi, Indonesian) use the legacy pipeline, not the Gemini voice mode. Lens camera translation is free and covers the target languages.
+- **Google Translate** (free): Conversation tab rebuilt 9 Jun 2026 on Gemini 3.5 Live Translate: audio to audio, 70+ languages, auto-detects who speaks. Covers Hindi, Thai, Vietnamese; Indonesian expanding. Offline packs use the legacy pipeline.
+- **Apple**: Translate app has Thai, Vietnamese, Indonesian, **no Hindi**. iOS 26 AirPods Live Translation has none of Thai, Vietnamese, Hindi, Indonesian. Accuracy drops sharply above ~70 dB ambient.
+- **Samsung Galaxy AI Interpreter**: free, ~20 languages including all four, real offline packs; the best free offline option, Samsung only.
+- Microsoft Converse retired 30 Jun 2026; SayHi shut Aug 2024; iTranslate is a paywall; Papago is shallow on Thai. Hardware (Timekettle, Pocketalk, $150–450) serves people who won't use a phone.
 
-**Apple.** Translate app: 18 languages incl. Thai, Vietnamese, Indonesian — **no Hindi**. iOS 26 Live Translation with AirPods: EN/FR/DE/PT/ES (+ ZH/IT/JA/KO in 26.2) — **no Thai, Vietnamese, Hindi, Indonesian**. Tests: waits for sentence end, "slower and more tiring", accuracy drops sharply above ~70 dB ambient.
+Net: two-way voice in Thai/Vietnamese/Hindi/Indonesian is free and good; paid apps and hardware are residual.
 
-**Samsung Galaxy AI Interpreter.** Free on S24/S25/S26 and recent folds; split-screen; ~20 languages incl. **Thai, Vietnamese, Hindi, Indonesian**; downloadable packs give real offline for common pairs. The strongest free offline option for this language set — Samsung-only.
+## Web platform reality
 
-**Others.** Microsoft Translator retired its multi-device Converse feature 30 June 2026. **SayHi** (Amazon) shut 5 Aug 2024. **iTranslate** is a paywall play ($9.99/week). **Papago** free, 14 languages, strongest for Korean/Japanese, shallower Thai.
+- **iOS Safari `webkitSpeechRecognition`**: covers all four languages but `continuous=true` never ends and drops results, and **it does not work in a Home Screen (standalone) web app**. Usable only as tap-to-talk in a real Safari tab, which is what `/talk` does. Chrome/Edge on iOS inherit this.
+- **Android Chrome**: cloud recogniser, broad languages, stable. On-device Thai coverage unconfirmed.
+- **`speechSynthesis`**: iOS exposes only pre-installed voices. Android Chrome silently falls back to English without the Google TTS pack, so check that `voice.lang` resolved and keep the `SPEECH_BASE_URL` fallback.
+- No continuous listening in iOS PWAs. Chrome's Translator API is desktop only; in-browser Whisper is multi-second and 100–500 MB; Apple's SpeechAnalyzer is native only.
 
-**Hardware.** Timekettle W4 Pro $449 (offline only for EN/ZH/JA/KO/FR/ES/DE/RU pairs — Thai/Vietnamese not offline); Fluentalk T1 $299; Vasco V4 ~$389; Pocketalk S2 $150–300. Devices exist for people who cannot or will not use a phone.
+## Server cost
 
-**Net:** two-way voice in Thai/Vietnamese/Hindi/Indonesian is free and good in Google Translate (online) and Samsung (partly offline); Apple is absent on these languages in the earbud path; paid apps and hardware are residual.
+STT is ~$0.006–0.008 per minute (Deepgram, AssemblyAI, OpenAI, ElevenLabs, Sarvam). TTS ranges from $4/M characters (Google WaveNet) to $60–100/M (MiniMax, ElevenLabs). Speech-to-speech is $0.04–0.10 per minute (Gemini Live Translate API, free in preview; OpenAI realtime). A turn is ~150 characters, so a trip costs cents. Cost is not the constraint; latency and robustness are.
 
-## 2. Web platform reality
+## Differentiator or commodity?
 
-- **iOS Safari `webkitSpeechRecognition`**: exists since 14.5, routes through Apple's recogniser (covers Thai, Vietnamese, Hindi, Indonesian). Known defects through iOS 17/18/26: `continuous=true` never ends and drops results, `interimResults` inconsistent, and **it does not work in a Home Screen (standalone) web app**. Chrome/Edge on iOS inherit this. Usable only as tap-to-talk in a real Safari tab — exactly what `/talk` does.
-- **Android Chrome**: cloud recogniser, broad languages, stable `continuous`. Chrome 139 shipped on-device `processLocally`; Thai pack coverage unconfirmed.
-- **`speechSynthesis`**: iOS exposes only pre-installed voices (Thai/Vietnamese/Hindi compact voices ship). Android Chrome silently falls back to English if the Google TTS pack isn't downloaded — check `voice.lang` actually resolved; keep the `SPEECH_BASE_URL` fallback.
-- **PWA continuous listening**: not on iOS. **New APIs**: Chrome built-in Translator/LanguageDetector are desktop only; WebGPU Whisper runs in-browser but is multi-second per utterance and a 100–500 MB download; Apple's SpeechAnalyzer is native only.
+Commodity: Google has >1B monthly users and every flagship bundles an interpreter. Pain points: **noise**, **turn-taking latency**, **register** (Thai ครับ/ค่ะ, Hindi tu/tum/aap guessed), **domain** (prices, numbers, dishes), and most tourist needs are **reading** (menus, signs), where the camera beats speech.
 
-## 3. Server-side options and cost (per minute of audio, list)
+## What matters more for a group
 
-| Layer | Option | Languages | ~$/min |
-|---|---|---|---|
-| STT | Deepgram Nova-3 | Thai/Vi/Hi/Id streaming | $0.0077 |
-| STT | AssemblyAI Universal-Streaming | multilingual streaming limited; others batch | ~$0.006 |
-| STT | OpenAI gpt-4o-transcribe / realtime | broad | $0.006 / $0.017 |
-| STT | ElevenLabs Scribe v2 Realtime | 90+, 150 ms | $0.0065 |
-| STT | Sarvam (Indic) | 22 Indian languages | ~$0.006 |
-| TTS | Google WaveNet / Neural2 / Chirp 3 HD | Thai, Vi, Hi, Id | $4 / $16 / $30 per M chars |
-| TTS | OpenAI gpt-4o-mini-tts | broad | ~$16/M chars |
-| TTS | Cartesia Sonic 3 | 42 langs incl. Thai/Vi/Hi | ~$37/M chars |
-| TTS | MiniMax speech-2.6 | 40 langs, cross-lingual voices | $60–100/M chars |
-| TTS | ElevenLabs Flash/Multilingual | yes | $50–100/M chars |
-| S2S | Gemini 3.5 Live Translate API | 70+ | free in preview; ≈ $0.037/min each direction after |
-| S2S | OpenAI gpt-realtime-2.1 / mini | broad | $0.019 in + $0.077 out; mini ≈ ⅓ |
+- **Address card in local script** (hotel, tonight's restaurant) for a driver; used more than any spoken sentence.
+- **Phrase cards the group wrote together** ("we are 8, one vegetarian, no coriander", "meter please") with the gender toggle baked in: the kept `phrases`.
+- **Haggle helper**: target and walk-away prices, the number spoken in Thai with the right particle.
+- Menu OCR is commodity; the group version is the bill. A currency converter defaults to the destination.
 
-A spoken turn is ~150 characters: TTS $0.001–0.015 per turn; a DIY pipeline ~$0.02–0.04 per spoken minute; S2S $0.04–0.10. For one friend group on a two-week trip this is cents. Cost is not the constraint; latency and robustness are.
+## Implications
 
-## 4. Differentiator or commodity?
+1. Do not compete with Google on interpretation. Keep `/talk` a thin tap-to-talk that works in Safari; spend no more on STT/TTS plumbing.
+2. The moat is what Google does not know about the group: the shared phrasebook, address cards, a number-speaker tied to the bill's currency, the bill.
+3. If a server voice stays, Cartesia or Google Chirp are cheaper than MiniMax for Thai (irrelevant at these volumes). Gemini Live Translate is the only speech-to-speech option covering the four languages if that ever returns.
+4. Guard the constraints: the politeness toggle (Google guesses gender, Souvenir asks), no stored turns, `voiceFor` refusing a language the pair no longer covers.
 
-Commodity. Google Translate has >1B monthly users and conversation mode in 70 languages; every flagship phone bundles a free interpreter. The specialist tier is consolidating. Consistent pain points: **noise** (markets, restaurants), **latency/turn-taking** (systems wait for sentence end), **register** (Thai ครับ/ค่ะ, Hindi tu/tum/aap guessed rather than known), **domain** (prices, numbers, dish names), and most tourist needs are **reading** (menus, signs, receipts) where camera beats speech.
-
-## 5. Adjacent "talk to locals" features that matter more for a group
-
-- **Address card in local script** (hotel, tonight's restaurant) to show a driver — used more than any spoken sentence.
-- **Phrase cards the group wrote together** — "we are 8, one vegetarian, no coriander", "meter please", with the gender toggle baked in. This is exactly what the kept `phrases` already are.
-- **Haggle helper**: target price, walk-away price, the number spoken aloud in Thai with the right particle.
-- **Menu OCR**: commodity via Lens; the group version is "what did we order, who owes what", which is the bill.
-- **Currency converter** defaulting to the trip's destination.
-
-## Implications for Souvenir
-
-1. **Do not compete with Google on interpretation.** Keep `/talk` as a thin tap-to-talk that works in Safari today; spend no more on STT/TTS plumbing.
-2. **The thin slice that beats Google is everything Google does not know about the group**: the shared phrasebook (voice and particle already chosen), address/destination cards, a haggle/number-speaker tied to the bill's currency, and the bill itself. Google is per-person; the group's phrases, places, and money are the moat.
-3. If a server voice is kept, Cartesia/Google Chirp are cheaper than MiniMax for Thai; at these volumes it is irrelevant. Gemini Live Translate API is the only audio-to-audio option covering the four languages if S2S ever comes back.
-4. Guard the existing constraints: politeness toggle (Google guesses gender, Souvenir asks), no stored turns, `voiceFor` refusal for a language the pair no longer covers.
-
-Sources: Google blog (Gemini 3.5 Live Translate, 9 Jun 2026); Apple Translate App Store listing and iOS 26.2 support note; Samsung Galaxy AI language guide; WhistleOut (Microsoft Translator, iTranslate); Lemmy thread on SayHi shutdown; Apple developer forums on webkitSpeechRecognition in standalone mode; Chrome 139 release notes; Chrome Translator API docs; WWDC25 SpeechAnalyzer; vendor pricing pages (Deepgram, AssemblyAI, ElevenLabs, Sarvam, Cartesia, MiniMax, OpenAI); CloudPrice for Gemini Live Translate; Boostlingo/SAN AirPods tests.
+Sources: Google blog (9 Jun 2026); Apple, Samsung and Chrome documentation; Apple developer forums on standalone `webkitSpeechRecognition`; vendor pricing pages.

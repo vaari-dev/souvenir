@@ -21,9 +21,9 @@ import { lingoOf } from "@/lib/lingo";
 import { requireTrip } from "@/lib/session";
 
 /**
- * The group and the leaderboard are one page. The table is sealed and comes
- * from the phone; the invite, rekey and recovery machinery below it is the
- * server's, and everybody reads it — being seen is the check on all of it.
+ * The group and the leaderboard. The table is sealed and comes from the phone; the invite,
+ * rekey and recovery machinery below is the server's, and everybody sees it: being seen is the
+ * check.
  */
 export default async function MembersPage({ params }: { params: Promise<{ tripId: string }> }) {
   const { tripId } = await params;
@@ -93,7 +93,7 @@ export default async function MembersPage({ params }: { params: Promise<{ tripId
                   who={r.member.name}
                   detail={`minted by ${r.mintedBy?.name ?? "the console"} · expires ${timeUntil(r.row.expiresAt)}`}
                 >
-                  {/* Whoever the link is for can always shut it — see revokeRecovery. */}
+                  {/* The member a link names can always shut it (revokeRecovery). */}
                   {(canInvite || r.member.id === me.id) && (
                     <ShutRecovery tripId={tripId} code={r.row.code} />
                   )}
@@ -123,7 +123,7 @@ export default async function MembersPage({ params }: { params: Promise<{ tripId
                 who={i.label}
                 detail={`invited by ${nameById.get(i.invitedBy) ?? "an organiser"} · link expires ${fmtDate(i.expiresAt)}`}
               >
-                {/* The link was whole only where it was minted; here it can only be shut. */}
+                {/* Whole only where minted; here it can only be shut. */}
                 {canInvite && <RevokeInvite code={i.code} />}
               </Row>
             ))}

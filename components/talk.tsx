@@ -117,7 +117,6 @@ export function Talk({
   const busy = listening !== null || thinking;
   const latest = turns[turns.length - 1];
 
-  /** Reading a live turn: whichever side's language it landed in. */
   const sideVoice = (side: Side): PhraseVoice => {
     const speaker = speakerOf(pair, side);
     return { tag: speaker.tag, prefer: speaker.voice, side };
@@ -157,7 +156,6 @@ export function Talk({
 
   const replay = (turn: Turn) => speak(turn.said, sideVoice(otherSide(turn.side)));
 
-  /** One utterance all the way through: heard, interpreted, said back. */
   const put = async (heard: string, pressed: Side) => {
     const utterance = clampUtterance(heard);
     if (!worthSaying(utterance)) {
@@ -289,7 +287,6 @@ export function Talk({
       </div>
     );
 
-  /** The phrasebook, which needs no interpreter — only a voice. */
   const phrasebook = kept.length > 0 && (
     <section className="space-y-2">
       <h2 className="eyebrow">{t.phrasebookHeading}</h2>

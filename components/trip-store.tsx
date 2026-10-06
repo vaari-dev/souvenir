@@ -207,9 +207,8 @@ export function TripStoreProvider({
     try {
       res = await actions.since(tripId, last);
     } catch (err) {
-      // A deploy has moved under this tab: every further poll can only 404 the
-      // same way, four times a minute for as long as the trip is left open. Stop
-      // knocking and let <StaleBuild> ask for the reload that is the only fix.
+      // A deploy has moved under this tab: further polls can only 404. Stop and let <StaleBuild>
+      // ask for the reload, the only fix.
       if (!isStaleBuild(err)) throw err;
       markStaleBuild();
       return;
@@ -221,9 +220,8 @@ export function TripStoreProvider({
     void saveRows(fresh);
   }, [actions, tripId]);
 
-  // Poll while the tab is visible, once the phone's own copy is in; catch up the moment it
-  // becomes visible again. A stale build ends it: the effect re-runs, the cleanup clears the
-  // interval, and this tab is done until it is reloaded.
+  // Poll while visible, once the phone's own copy is in; catch up on becoming visible. A stale
+  // build clears the interval, and this tab is done until reloaded.
   useEffect(() => {
     if (!key || !cached || stale) return;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -244,7 +242,6 @@ export function TripStoreProvider({
     };
   }, [key, cached, stale, refresh]);
 
-  // Rows in the trip's order; the store keeps `rows` sorted by seq.
   const events = useMemo(
     () => rows.map((r) => opened.get(r.id)).filter((e): e is OpenEvent => e != null),
     [rows, opened],
@@ -284,9 +281,8 @@ export function TripStoreProvider({
       try {
         res = await actions.append(tripId, sealed.envelope);
       } catch (err) {
-        // The envelope is sealed and the rules passed it; only the deploy is in the
-        // way. The tap gets a reason instead of a rejected promise nobody catches,
-        // and the same tap works after the reload.
+        // Sealed and rule-checked; only the deploy is in the way. The tap gets a reason, and the
+        // same tap works after the reload.
         if (!isStaleBuild(err)) throw err;
         markStaleBuild();
         return {

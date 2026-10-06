@@ -115,7 +115,6 @@ const BACKUP_NOTES = {
   restored: "Your passkey restored a backup, but it doesn't hold this trip's key yet.",
 } as const;
 
-/** The third way in, and why it did not work this time. */
 function PasskeyBackup() {
   const { backup } = useKeyring();
   if (!backup) return null;

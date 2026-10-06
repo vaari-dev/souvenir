@@ -1,18 +1,6 @@
-// Talking to somebody who is not in the group.
-//
-// One page, one job: you speak, the phone says it back in the local language,
-// and when it is handed over it goes the other way. Everything this needs to
-// know is here — which two languages, which way round a transcript goes, and
-// which of a device's voices can say the other one.
-//
-// The pair is the trip's configuration: where the group is going and what
-// they speak among themselves (lib/trips.ts). The destination decides the
-// language, the voice, and which currency a bill is likely in — the last of
-// which has to be one lib/split.ts can format, so a new destination is a line
-// here and, if its money is new, a line there.
-//
-// Nothing is stored. A conversation with a stranger lives in the tab and ends
-// with it, which is why there is no table behind any of this.
+// The interpreter's language pair, turn-taking and voice choice.
+// The pair is the trip's configuration (lib/trips.ts). Nothing is stored: a
+// stranger's words live in the tab and die with it.
 
 import { CURRENCIES } from "./split.ts";
 
@@ -25,11 +13,7 @@ export type Gender = "female" | "male";
 /** Which of a device's several voices for a language to reach for. */
 export type VoicePreference = Gender;
 
-/**
- * A polite ending that depends on who is speaking, in a language that has
- * one. `native` and `roman` are what the toggle shows; `prompt` is the rule
- * the interpreter is given, written for that language and nothing else.
- */
+/** `native` and `roman` are what the toggle shows; `prompt` is the rule the interpreter gets. */
 export interface Particle {
   native: string;
   roman: string;
@@ -47,27 +31,16 @@ export interface Speaker {
   hello: string;
   /** Unicode script name, for telling one side's transcript from the other's. */
   script: string;
-  /**
-   * Who should read it. A phone usually carries more than one voice per
-   * language and picks its own default between them, which is a coin toss —
-   * this is the group saying which one they meant. A preference, not a
-   * promise: plenty of phones carry exactly one voice for a language, and
-   * plenty more do not say in the name which it is.
-   */
+  /** A preference, not a promise: many phones carry one voice per language or don't name its gender. */
   voice: VoicePreference;
-  /**
-   * Whether a polite sentence ends differently depending on who is speaking,
-   * and how. Thai does (ครับ/ค่ะ), and it is the first thing a listener
-   * notices; most languages do not, and offering the choice would be noise —
-   * so it is offered only where a speaker names its forms.
-   */
+  /** Offered only where the language's polite ending depends on the speaker's gender (Thai). */
   particles?: Record<Gender, Particle>;
 }
 
 export interface Pair {
   us: Speaker;
   them: Speaker;
-  /** Where this is happening, which is what makes a translation idiomatic. */
+  /** Makes a translation idiomatic. */
   place: string;
   /** ISO 4217 lowercased, matching the bills schema. */
   currency: string;
@@ -96,17 +69,12 @@ const EN_GB: Speaker = { ...EN, tag: "en-GB" };
 /** What the group speaks among themselves. */
 export const HOME: Record<string, Speaker> = { en: EN, hi: HI, "en-us": EN_US, "en-gb": EN_GB };
 
-/** One line per place a group can go. The key is the ISO 3166 country code. */
 export type Destination = Omit<Pair, "us"> & {
   /** Two-letter country code, what a trip stores. */
   code: string;
   /** Short flag for lists. */
   flag: string;
-  /**
-   * IANA zone the trip's calendar days run on — a trip ends when its last day
-   * does *there*, not at anyone's home midnight. Countries spanning zones get
-   * the one their visitors are in (Bali, not Jakarta; the US east coast).
-   */
+  /** IANA zone the trip's days run on; multi-zone countries get the visitors' (Bali, not Jakarta). */
   tz: string;
 };
 
@@ -119,11 +87,7 @@ const dest = (
   them: Speaker,
 ): Destination => ({ code, flag, place, currency, tz, them });
 
-/**
- * Where they are. Ordered by how often an Indian friend group goes there
- * (2025 arrivals), which is the order a picker shows them in. Adding one is a
- * line here, plus a line in lib/split.ts if its money is new.
- */
+/** Picker order: how often an Indian friend group goes. Currency must be in lib/split.ts. */
 export const DESTINATIONS: Record<string, Destination> = {
   TH: dest("TH", "🇹🇭", "Thailand", "thb", "Asia/Bangkok", {
     code: "th",
@@ -279,13 +243,7 @@ export const DESTINATION_LIST: readonly Destination[] = Object.values(DESTINATIO
 
 export class PairError extends Error {}
 
-/**
- * The pair a trip interprets between, or a refusal naming the half that is
- * wrong. Checked when a trip is created: a typo should be refused at the form,
- * not discovered in front of a driver. A destination that speaks what the
- * group already speaks is refused too — `pairFor` is the question to ask when
- * "nothing to interpret" is an answer rather than an error.
- */
+/** Refuses at creation, not at the till. `pairFor` is for "nothing to interpret" as an answer. */
 export function resolvePair(language: string, country: string): Pair {
   const us = HOME[language.toLowerCase()];
   if (!us) {
@@ -310,12 +268,7 @@ export function resolvePair(language: string, country: string): Pair {
   return { us, ...pair };
 }
 
-/**
- * The pair for a trip, or null when there is nothing to interpret — an Indian
- * group in Singapore, an English-speaking one in London. Null hides the talk
- * page; it is not a fault. Unknown codes still throw: a trip row holding one
- * is a bug, not a configuration.
- */
+/** Null (talk page hidden) when nothing to interpret. Unknown codes throw: that is a bug. */
 export function pairFor(trip: { homeLanguage: string; destination: string }): Pair | null {
   const us = HOME[trip.homeLanguage.toLowerCase()];
   const there = DESTINATIONS[trip.destination.toUpperCase()];
@@ -336,12 +289,8 @@ export function speakerOf(pair: Pair, side: Side): Speaker {
 }
 
 /**
- * A deploy's server-side voices, one per language, from a spec like
- * `th=Thai_male_1_sample8,hi=hindi_female_1_v2`. Which voice says which
- * language is configuration: the ids are one vendor's catalogue, checked
- * against that vendor, and nothing in code should know them. Blank and
- * malformed entries are dropped rather than refused — a missing voice costs
- * the server's fallback for that side, never the page.
+ * Parses a spec like `th=Thai_male_1_sample8,hi=hindi_female_1_v2`. Malformed entries are dropped:
+ * a missing voice costs the fallback, never the page.
  */
 export function serverVoices(spec: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -355,22 +304,19 @@ export function serverVoices(spec: string): Record<string, string> {
   return out;
 }
 
-/** Longest utterance sent — about a minute of speech, well past a sentence. */
+/** About a minute of speech. */
 export const MAX_UTTERANCE = 1000;
 
-/** Turns kept on screen. Nothing is stored anywhere. */
 export const MAX_TURNS = 40;
 
 export interface Turn {
   id: number;
   side: Side;
-  /** What was heard, in the language it was said in. */
   heard: string;
-  /** What the other side gets, in theirs. */
   said: string;
-  /** Romanisation, so the group can read a turn out loud themselves. */
+  /** So the group can read a turn aloud themselves. */
   roman?: string;
-  /** What the translation literally says, for checking before it is spoken. */
+  /** For checking before it is spoken. */
   literal?: string;
 }
 
@@ -388,13 +334,9 @@ export function worthSaying(text: string): boolean {
 }
 
 /**
- * Which side a transcript came from, given which button was pressed.
- *
- * The button is the intent and usually right, but the phone gets handed over
- * and nobody presses anything — so a transcript written mostly in the local
- * script is that side whatever the button said. A mixed one (their language
- * plus a stray English word, which recognisers produce constantly) is left to
- * the button, and so is everything when both sides share a script.
+ * The phone gets handed over without a button press, so a mostly-local-script transcript is
+ * "them" whatever was pressed. Mixed ones (recognisers add stray English) defer to the button,
+ * as does everything when both sides share a script.
  */
 export function sideOf(transcript: string, pressed: Side, pair: Pair): Side {
   if (pair.us.script === pair.them.script) return pressed;
@@ -408,7 +350,6 @@ export function sideOf(transcript: string, pressed: Side, pair: Pair): Side {
   return pressed;
 }
 
-/** The bits of SpeechSynthesisVoice that choosing one needs. */
 export interface Voice {
   lang: string;
   name: string;
@@ -416,17 +357,8 @@ export interface Voice {
   default?: boolean;
 }
 
-/**
- * Whether a voice announces itself as a woman's or a man's, or says nothing.
- *
- * There is no field for it — `SpeechSynthesisVoice` carries a name and a tag
- * and nothing else — so the name is all there is to read. Chrome and Windows
- * put the word in ("Google UK English Female", "Microsoft Heera"); Apple uses
- * first names; Android frequently says neither, and those are left alone
- * rather than guessed at. The lists are the names met so far, not a catalogue:
- * a voice whose name is not here still gets picked for its language, and being
- * wrong about one costs a preference, not a voice.
- */
+// SpeechSynthesisVoice has no gender field, so read the name: Chrome/Windows say the word,
+// Apple uses first names, Android often neither (left alone). Lists are names met so far.
 const FEMALE_NAMES =
   /\b(veena|isha|heera|kanya|kalpana|lekha|swara|neerja|shruti|aditi|priya|raveena|ananya|premwadee|achara)\b/;
 const MALE_NAMES = /\b(rishi|ravi|hemant|madhur|prabhat|niwat|kritsada|sarawut)\b/;
@@ -441,15 +373,9 @@ function genderOf(name: string): VoicePreference | null {
 }
 
 /**
- * The best voice on this device for a language, or null when it has none.
- *
- * Browsers disagree about all of it: a tag can be `xx-XX`, `xx_XX` or `xx`,
- * names differ between devices, and a phone with no voice for a language just
- * omits it. Region match first, then the language, then the voice the group
- * asked for where the device says which is which, then one that lives on the
- * device — a network voice is the first thing to fail on hotel wifi. The
- * preference sorts below the language on purpose: the wrong voice saying the
- * right language is understood, and the reverse is not.
+ * Tags may be `xx-XX`, `xx_XX` or `xx`. Order: region match, language, preferred gender, then
+ * on-device (network voices fail on hotel wifi). Gender sorts below language on purpose: the
+ * wrong voice in the right language is understood, the reverse is not.
  */
 export function pickVoice(
   voices: readonly Voice[],
@@ -463,7 +389,6 @@ export function pickVoice(
     if (t === want) return 0;
     return t.split("-")[0] === base ? 1 : 2;
   };
-  // Asked-for first, then anything that does not say, then the other one.
   const asked = (v: Voice) => {
     if (!prefer) return 1;
     const gender = genderOf(v.name);
@@ -480,11 +405,7 @@ export function pickVoice(
   )[0];
 }
 
-/**
- * What to tell someone whose phone cannot do part of this. Null when it can.
- * Typing is always there and the words are always on screen, so a missing
- * microphone or voice is a slower way through, never a dead end.
- */
+/** Null when the phone can do both. Typing and on-screen words mean it is never a dead end. */
 export function warning(can: { listen: boolean; speak: boolean }, language: string): string | null {
   if (!can.listen && !can.speak) {
     return `This phone can't listen or speak. Type instead — the ${language} still comes back written.`;

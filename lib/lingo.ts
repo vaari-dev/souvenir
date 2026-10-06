@@ -1,6 +1,5 @@
-// Every flavored UI string lives in lingo.yaml — edit that, not this. `pnpm lingo:gen` compiles it
-// into lingo.data.ts; this module types that data and turns {placeholders} into functions.
-// Pure data: safe on server and client.
+// Edit lingo.yaml, not this: `pnpm lingo:gen` compiles it into lingo.data.ts; this module types
+// it and turns {placeholders} into functions.
 
 import { LINGO_KEYS, RAW_LINGOS } from "./lingo.data.ts";
 
@@ -9,9 +8,8 @@ export { LINGO_KEYS };
 export type LingoKey = (typeof LINGO_KEYS)[number];
 
 export interface Lingo {
-  /** Display name in the picker. */
   name: string;
-  /** Register description handed to the AI polish prompt. */
+  /** Handed to the AI polish prompt. */
   register: string;
   footer: string;
   activityHeading: string;
@@ -77,7 +75,7 @@ export interface Lingo {
   cardPublishNote: string;
 }
 
-/** As YAML holds it: every field a string. A field renamed in lingo.yaml fails to compile. */
+/** As YAML holds it; a field renamed in lingo.yaml fails to compile. */
 export type RawLingo = { [K in keyof Lingo]: string };
 
 function fill(template: string, vars: Record<string, string | number>): string {

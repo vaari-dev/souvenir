@@ -1,11 +1,7 @@
 import type { Instrumentation } from "next";
 
-// Runs once when a Next.js server instance boots, before it serves requests.
-// Importing lib/env here validates the whole environment up front, so a
-// missing AUTH_SECRET (or any other invalid config) stops the server from
-// starting instead of failing on the first request. In production it also
-// takes over console, so Next's own error reporting comes out as JSON lines
-// like everything else (see lib/logger).
+// Importing lib/env here validates the environment at boot, not on the first request. In
+// production it also routes console through lib/logger, so Next's own errors are JSON lines.
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { env } = await import("@/lib/env");
@@ -17,12 +13,8 @@ export async function register() {
 }
 
 /**
- * Every error the server catches on a request — a render, a route handler, an
- * action — as one record that says where. Next prints the error itself too
- * (through console, so as JSON once register() has run); this is the line with
- * the route on it, and the two share the digest. The path is masked and the
- * headers are left out: a link's code is a path segment and a session is a
- * cookie.
+ * One record per failed request, with its route; shares the digest with Next's own line. The
+ * path is masked and headers omitted: a link's code is a path segment, a session a cookie.
  */
 export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;

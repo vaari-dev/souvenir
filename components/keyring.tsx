@@ -1,13 +1,12 @@
 "use client";
 
-// The keyring on this phone (docs/private-trips.md §4.1, §4.8.3). IndexedDB
-// holds a non-extractable keyring key, the keyring blob sealed under it, and
-// one key per passkey used here, derived from the passkey's PRF output — the
-// same on every phone that passkey syncs to, so the keyring is backed up under
-// each in `keyring_wraps` and restored from there after a sign-in.
+// The keyring on this phone (docs/private-trips.md §4.1, §4.8.3): IndexedDB holds a
+// non-extractable keyring key, the keyring sealed under it, and a key per passkey derived from
+// its PRF output — the same on every phone the passkey syncs to — under which the keyring is
+// backed up in `keyring_wraps` and restored after a sign-in.
 //
-// Storage can be missing (a private window, Safari after a week away): an
-// empty or broken store is a keyless phone, not a crash.
+// Missing or broken storage (a private window, Safari after a week away) is a keyless phone,
+// not a crash.
 
 import {
   createContext,
@@ -38,8 +37,6 @@ const KK_ID = "kk";
 const BLOB_ID = "keyring";
 const PRF_IDS = "prf";
 const prfId = (credentialId: string) => `prf:${credentialId}`;
-
-// --- IndexedDB, the small part of it we need ----------------------------------
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -90,8 +87,6 @@ function openStore() {
   return store;
 }
 
-// --- passkeys -------------------------------------------------------------------
-
 interface PrfResults {
   prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } };
 }
@@ -120,7 +115,6 @@ export async function rememberPrf(credential: PublicKeyCredential): Promise<bool
     if (!ids.includes(credential.id)) await idbPut(db, PRF_IDS, [...ids, credential.id]);
     return true;
   } catch {
-    // No storage: nothing to back up into, and nothing to restore from.
     return false;
   }
 }
@@ -202,8 +196,6 @@ async function restore(
   }
   return { keyring: merged, stale, note };
 }
-
-// --- the context --------------------------------------------------------------
 
 export type KeyringStatus =
   /** Storage is still opening; nothing is known yet. */

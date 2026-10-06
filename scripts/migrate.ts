@@ -1,5 +1,4 @@
-// One-shot migration runner. Used by the `migrate` docker compose service
-// (runs and exits) and by `pnpm db:migrate` locally.
+// One-shot migration runner: the `migrate` compose service and `pnpm db:migrate`.
 // Run with: node --env-file=.env scripts/migrate.ts   (env file optional)
 
 import path from "node:path";

@@ -1,18 +1,12 @@
-// The rules of a sealed trip, run on every phone. See docs/private-trips.md §4.7.
+// The rules of a sealed trip, run on every phone (docs/private-trips.md §4.7).
 //
-// The server orders events and cannot read them, so nothing there can say
-// whether a call was over the cap or a resolve came from the creator. This
-// does: given the trip's configuration and its events in server order, it
-// produces the state every page shows, applying each event only if the rules
-// allow it — and every honest phone, running the same code over the same log,
-// arrives at the same state. An event that breaks a rule is skipped with a
-// reason, never patched; a modified client that posts one only lies to its own
-// screen.
+// The server orders events but cannot read them, so only this can say a call was over the cap or
+// a resolve came from the creator. Given the config and the events in server order it produces
+// the state every page shows; honest phones running the same code over the same log agree. A
+// rule-breaking event is skipped with a reason, never patched.
 //
-// Settlement math is lib/engine's, untouched. Each market carries its live
-// positions and the settlement that stands, which is what lib/stats reads;
-// the `ledger` is the same story as a feed — every pie movement, in order —
-// for the pages that show what happened rather than where it ended up.
+// Settlement math is lib/engine's. Each market carries its positions and the settlement that
+// stands (what lib/stats reads); `ledger` is the same story as a feed, every pie movement in order.
 
 import {
   computePositions,
@@ -30,10 +24,10 @@ import { CENTS } from "./pies.ts";
 import { type BillEntry, buildEntries, SplitError } from "./split.ts";
 
 export interface ReplayConfig {
-  /** The first organiser, before any `member.role` says otherwise. */
+  /** The first organiser, until a `member.role` says otherwise. */
   creatorId: string;
   maxStakePies: number;
-  /** The currencies a bill may be in: the trip's home one, and the foreign one if any. */
+  /** The currencies a bill may be in. */
   currencies: readonly string[];
 }
 
@@ -51,7 +45,6 @@ export interface MarketState {
   settlement: Settlement | null;
 }
 
-/** Who got what when the market closed: the pool to the winners, or every stake back. */
 export interface Settlement {
   kind: "payout" | "refund";
   paidC: Map<string, number>;
@@ -59,10 +52,8 @@ export interface Settlement {
 
 export type LedgerKind = "bet" | "switch" | "payout" | "refund" | "reversal";
 
-/**
- * One pie movement. `amountC` is the size, `balanceDeltaC` its sign for the
- * member: bet −, switch 0, payout/refund +, reversal −.
- */
+// `amountC` is the size; `balanceDeltaC` its effect on the member: bet −, switch 0, payout/refund +,
+// reversal −.
 export interface LedgerRow {
   id: number;
   at: Date;
@@ -142,20 +133,17 @@ export interface Rejection {
 export interface TripState {
   organiserIds: Set<string>;
   markets: Map<string, MarketState>;
-  /** Every pie movement, derived, in the ledger shape and in event order. */
   ledger: LedgerRow[];
   comments: CommentState[];
   reactions: ReactionState[];
   bills: Map<string, BillState>;
   phrases: Map<string, PhraseState>;
   hellos: Map<string, HelloState>;
-  /** Events this build could not apply, with why. */
   rejected: Rejection[];
-  /** Events of a type this build does not know — a newer app has been here. */
+  /** Events of a type this build does not know: a newer app has been here. */
   unknown: number;
 }
 
-/** A rule said no. Thrown inside `apply`, caught into `rejected`. */
 class Refused extends Error {}
 
 function refuse(reason: string): never {
@@ -387,7 +375,7 @@ function apply(ctx: Ctx, ev: OpenEvent, p: Exclude<EventPayload, UnknownEvent>):
       return;
     }
     case "member.hello": {
-      // A later hello without a key keeps the announced one: a phone may say hello before it has an mk.
+      // A later hello without a key keeps the announced one.
       const before = state.hellos.get(ev.authorId);
       state.hellos.set(ev.authorId, {
         at: ev.at,
@@ -430,7 +418,6 @@ function liveBill(state: TripState, id: string): boolean {
   return !!bill && !bill.revisions[bill.revisions.length - 1]!.deleted;
 }
 
-/** Positions as the bet events that would rebuild them — one per held side. */
 function positionsAsEvents(positions: Map<string, Position>): MarketEvent[] {
   const out: MarketEvent[] = [];
   for (const [memberId, pos] of positions) {
@@ -440,7 +427,6 @@ function positionsAsEvents(positions: Map<string, Position>): MarketEvent[] {
   return out;
 }
 
-/** The author's pies move on a market: positions recomputed by lib/engine, one ledger row. */
 function move(
   ctx: Ctx,
   ev: OpenEvent,
@@ -481,7 +467,6 @@ function pushLedger(
 
 // --- derived views ------------------------------------------------------------
 
-/** Each member's net on the trip: the sum of every balance delta. */
 export function netByMember(state: TripState): Map<string, number> {
   const net = new Map<string, number>();
   for (const row of state.ledger) {
@@ -490,12 +475,10 @@ export function netByMember(state: TripState): Map<string, number> {
   return net;
 }
 
-/** The ledger rows of one market, oldest first. */
 export function marketRows(state: TripState, marketId: string): LedgerRow[] {
   return state.ledger.filter((r) => r.marketId === marketId);
 }
 
-/** Every market's rows in one pass, for the views that walk the whole board. */
 export function rowsByMarket(state: TripState): Map<string, LedgerRow[]> {
   const by = new Map<string, LedgerRow[]>();
   for (const row of state.ledger) {

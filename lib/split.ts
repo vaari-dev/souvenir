@@ -1,18 +1,12 @@
-// Pure split-bill math. Real money, integer centi-units end to end — paise,
-// satang, or a hundredth of a đồng nobody will ever see — formatted only at
-// the edge, like lib/pies.ts. No I/O; everything here is covered by
-// split.test.ts.
+// Split-bill math. Real money as integer centi-units end to end, formatted only at the edge
+// (like lib/pies.ts).
 //
-// A bill records who paid and who owes; a member's balance in a currency is
-// simply Σpaid − Σowed over live bills, so balances always sum to zero and are
-// derived by replay, never stored. Settling up is itself a bill (`settlement`
-// kind): the payer paid, the receiver owes — the same math zeroes them out.
+// A member's balance in a currency is Σpaid − Σowed over live bills, so balances sum to zero and
+// are derived by replay, never stored. Settling up is itself a bill (`settlement` kind).
 
 /**
- * ISO 4217, lowercased. Every currency a trip can spend: a destination in
- * lib/talk.ts has to name one of these, and a trip stores two of them at
- * most — home and foreign. `minor` is how many decimals the money is written
- * with (đồng, rupiah, and yen have none); storage is always centi-units.
+ * ISO 4217, lowercased. A destination in lib/talk.ts must name one of these. `minor` is the
+ * decimals the money is written with (đồng, rupiah, yen have none); storage is always centi-units.
  */
 export const CURRENCY_INFO = {
   inr: { symbol: "₹", minor: 2, locale: "en-IN", name: "Indian rupee" },
@@ -52,17 +46,14 @@ export type SplitMode = "equal" | "custom";
 
 export type BillKind = "expense" | "settlement";
 
-/** Validation failures with a message fit to show the member. */
+// Messages are fit to show the member.
 export class SplitError extends Error {}
 
-/** One member's line on a bill, all centi-units. */
 export interface BillEntry {
   memberId: string;
-  /** What they put in toward the bill. */
   paidC: number;
-  /** Their share of the cost. */
   owedC: number;
-  /** True when they're in the split (kept so edits re-open exactly). */
+  /** Kept so edits re-open exactly. */
   participant: boolean;
 }
 
@@ -78,11 +69,7 @@ export function billTotalC(entries: { paidC: number }[]): number {
   return entries.reduce((sum, e) => sum + e.paidC, 0);
 }
 
-/**
- * Split `totalC` equally across `memberIds` in whole centi-units. The
- * remainder cents land on the first members in id order, so the same bill
- * always splits the same way and the shares sum to the total exactly.
- */
+// Remainder cents go to the first members in id order, so a bill always splits the same way.
 export function equalShares(totalC: number, memberIds: string[]): Map<string, number> {
   if (memberIds.length === 0) throw new SplitError("Pick at least one person to split with.");
   const sorted = [...memberIds].sort();
@@ -96,12 +83,8 @@ export function equalShares(totalC: number, memberIds: string[]): Map<string, nu
   return shares;
 }
 
-/**
- * Turn form input into the entry rows a bill stores, validating as a unit:
- * someone paid, someone owes, and both sides sum to the same total. Owed
- * shares are computed here at write time (like lib/engine's settle) so the
- * stored bill is complete and historical bills never re-split.
- */
+// Validates as a unit: someone paid, someone owes, both sides sum to the same total. Shares are
+// computed at write time so historical bills never re-split.
 export function buildEntries(mode: SplitMode, inputs: BillEntryInput[]): BillEntry[] {
   const seen = new Set<string>();
   for (const input of inputs) {
@@ -148,17 +131,12 @@ export function buildEntries(mode: SplitMode, inputs: BillEntryInput[]): BillEnt
     .filter((e) => e.paidC > 0 || e.participant);
 }
 
-/** The shape nets/settleUp need — a live bill's currency and entry lines. */
 export interface BillForNets {
   currency: Currency;
   entries: { memberId: string; paidC: number; owedC: number }[];
 }
 
-/**
- * Replay bills into per-currency nets: positive means the group owes them,
- * negative means they owe the group. Zero-sum per currency by construction.
- * Two currencies never mix — there is no exchange rate here (lib/fx.ts is the bridge).
- */
+// Positive: the group owes them. Currencies never mix here; lib/fx.ts is the bridge.
 export function nets(bills: BillForNets[]): Map<Currency, Map<string, number>> {
   const byCurrency = new Map<Currency, Map<string, number>>();
   for (const bill of bills) {
@@ -174,18 +152,13 @@ export function nets(bills: BillForNets[]): Map<Currency, Map<string, number>> {
   return byCurrency;
 }
 
-/** What one bill did to a member: what they put in, their share, the net. */
 export interface MemberBillLine {
   paidC: number;
   owedC: number;
-  /** paidC − owedC: positive means this bill left the group owing them. */
   netC: number;
 }
 
-/**
- * A member's line on one bill, or null when it doesn't involve them — they
- * neither put money in nor had a share covered by someone else.
- */
+// Null when the bill does not involve them.
 export function memberBillLine(
   entries: { memberId: string; paidC: number; owedC: number }[],
   memberId: string,
@@ -195,12 +168,8 @@ export function memberBillLine(
   return { paidC: entry.paidC, owedC: entry.owedC, netC: entry.paidC - entry.owedC };
 }
 
-/**
- * One member's outstanding balance per currency, in CURRENCIES order: every
- * currency whose bills involve them, with their net over all live bills.
- * A currency they've settled still appears with net 0 — "all square" is an
- * answer, not an absence — but currencies they were never part of don't.
- */
+// Currencies they are settled in still appear, with net 0: "all square" is an answer. Currencies
+// they were never part of do not.
 export function memberNets(
   bills: BillForNets[],
   memberId: string,
@@ -217,11 +186,8 @@ export interface Transfer {
   amountC: number;
 }
 
-/**
- * A short who-pays-whom plan that clears every net: repeatedly match the
- * biggest debtor with the biggest creditor (ties broken by id, so the plan is
- * deterministic). At most n−1 transfers; executing them all zeroes the map.
- */
+// Greedy: biggest debtor pays biggest creditor, ties by id so the plan is deterministic. At most
+// n−1 transfers.
 export function settleUpPlan(net: Map<string, number>): Transfer[] {
   const debtors = [...net]
     .filter(([, c]) => c < 0)
@@ -246,11 +212,7 @@ export function settleUpPlan(net: Map<string, number>): Transfer[] {
   return plan;
 }
 
-/**
- * "₹1,234.50" / "฿640" / "₫250,000" — Indian digit grouping for rupees, plain
- * elsewhere; no decimals for money that has none (a stray half-đồng from a
- * split is rounded away on display only).
- */
+// "₹1,234.50" / "฿640" / "₫250,000". Money with no decimals is rounded on display only.
 export function fmtMoney(currency: Currency, amountC: number, opts?: { sign?: boolean }): string {
   const info = CURRENCY_INFO[currency];
   const sign = opts?.sign && amountC > 0 ? "+" : amountC < 0 ? "−" : "";
@@ -265,7 +227,6 @@ export function fmtMoney(currency: Currency, amountC: number, opts?: { sign?: bo
   return `${sign}${info.symbol}${grouped}${fracText}`;
 }
 
-/** "1234.5" → 123450 centi-units, or null for anything that isn't money. */
 export function parseAmount(text: string): number | null {
   const match = text
     .trim()

@@ -1,16 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fmtDate, timeAgo, timeUntil } from "./format.ts";
 
-// Every one of these reads the clock, so the clock is held still. Noon UTC on a
-// day in the middle of a month keeps `fmtDate` on the same calendar day in every
-// timezone a test machine might be set to.
+// Clock held at noon UTC mid-month so `fmtDate` lands on the same day in every timezone.
 const NOW = new Date("2026-08-27T12:00:00.000Z");
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** A moment `ms` before now, which is what these helpers are always handed. */
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
 const ahead = (ms: number) => new Date(NOW.getTime() + ms);
 
@@ -50,8 +47,7 @@ describe("timeAgo", () => {
     expect(timeAgo(ago(2 * HOUR).toISOString())).toBe("2h ago");
   });
 
-  // A phone whose clock runs a little ahead of the server's would otherwise
-  // read a negative age; the first branch catches it.
+  // A phone clock ahead of the server's would read a negative age.
   it("does not go backwards on a clock a touch ahead", () => {
     expect(timeAgo(ahead(5 * MINUTE))).toBe("just now");
   });

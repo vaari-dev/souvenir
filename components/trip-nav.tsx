@@ -16,9 +16,7 @@ export function TripNav({
 }: {
   tripId: string;
   unread: boolean;
-  /** The local language, or null when there is nothing to interpret. */
   talkLabel: string | null;
-  /** Past the last day: the recap tab comes forward. */
   ended: boolean;
 }) {
   const pathname = usePathname();

@@ -22,7 +22,6 @@ export function useAct(fallback = "That didn't work.") {
   return { pending, error, setError, act };
 }
 
-/** The same, for a button whose success is a server-rendered change: refresh the page after. */
 export function useRefreshingAct(fallback?: string) {
   const router = useRouter();
   const { act, ...rest } = useAct(fallback);
@@ -30,7 +29,6 @@ export function useRefreshingAct(fallback?: string) {
   return { ...rest, act: refreshing };
 }
 
-/** The error line under a button. */
 export function ActError({ error, block = false }: { error: string | null; block?: boolean }) {
   if (!error) return null;
   return block ? (

@@ -1,34 +1,24 @@
-// A minimal CBOR reader (RFC 8949), just enough for WebAuthn registration:
-// the attestation object is a CBOR map, and the credential public key buried
-// inside its authenticator data is a COSE key — also CBOR. Nothing else in the
-// app speaks CBOR, and the login path never touches it, so a decoder for the
-// handful of major types those two structures use beats a dependency.
-//
-// It is deliberately strict: these bytes come from a browser, so anything
-// unexpected — indefinite lengths, tags, floats, duplicate map keys, trailing
-// data — throws rather than being guessed at.
+// Minimal CBOR reader (RFC 8949) for WebAuthn registration: the attestation object and the
+// COSE key. Strict because the bytes come from a browser: indefinite lengths, tags, floats,
+// duplicate map keys and trailing data all throw.
 
 export class CborError extends Error {}
 
 export type CborMap = Map<number | string, CborValue>;
 export type CborValue = number | string | boolean | null | Buffer | CborValue[] | CborMap;
 
-/** No WebAuthn structure comes near this; it caps what a length header can claim. */
+// Caps what a length header can claim.
 const MAX_LENGTH = 1 << 20;
 const MAX_DEPTH = 16;
 
-/** Decode one complete item. Trailing bytes are an error — see decodeCborAt. */
+/** Decode one complete item; trailing bytes are an error. */
 export function decodeCbor(buf: Buffer): CborValue {
   const { value, offset } = decodeCborAt(buf, 0);
   if (offset !== buf.length) throw new CborError("trailing bytes after the top-level item");
   return value;
 }
 
-/**
- * Decode the item starting at `offset`, returning it with the offset just past
- * it. Authenticator data embeds a COSE key mid-buffer with no length prefix,
- * so the caller needs to know where the key ended.
- */
+/** Returns the offset past the item: authenticator data embeds a COSE key with no length prefix. */
 export function decodeCborAt(
   buf: Buffer,
   offset: number,
@@ -83,10 +73,7 @@ export function decodeCborAt(
   }
 }
 
-/**
- * Read the initial byte plus whatever length/value bytes follow it. `value` is
- * the argument: an integer, or the length of the string/array/map to come.
- */
+/** `value` is the integer, or the length of the string/array/map to come. */
 function readHead(
   buf: Buffer,
   offset: number,

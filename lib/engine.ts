@@ -1,5 +1,4 @@
-// Pure market math. No I/O — everything here is derived from ledger events
-// and is covered by tests in engine.test.ts. The zero-sum invariant lives here.
+// Market math. The zero-sum invariant lives here.
 
 export type Side = "yes" | "no";
 
@@ -7,7 +6,6 @@ export function otherSide(side: Side): Side {
   return side === "yes" ? "no" : "yes";
 }
 
-/** A balance-neutral view of one member's stake in one market. All cents. */
 export interface Position {
   yesC: number;
   noC: number;
@@ -21,10 +19,7 @@ export interface MarketEvent {
   amountC: number;
 }
 
-/**
- * Replay a market's events into per-member positions.
- * A `switch` moves `amountC` from the opposite side to `side`.
- */
+// A `switch` moves `amountC` from the opposite side to `side`.
 export function computePositions(events: MarketEvent[]): Map<string, Position> {
   const positions = new Map<string, Position>();
   for (const ev of events) {
@@ -53,19 +48,15 @@ export function exposure(pos: Position): number {
 }
 
 export interface SettlementResult {
-  /** memberId -> cents returned to them (payout or refund). Sums to the pool exactly. */
+  /** Cents returned per member (payout or refund). Sums to the pool exactly. */
   payoutsC: Map<string, number>;
-  /** True when the winning side had no stake, so all stakes were returned. */
+  /** The winning side had no stake, so all stakes were returned. */
   autoRefunded: boolean;
   totalPoolC: number;
 }
 
-/**
- * Distribute the entire pool to the winning side, pro-rata by stake.
- * Rounding uses the largest-remainder method so payouts sum to the pool
- * exactly (zero-sum, no house). If nobody held the winning side, every
- * participant is refunded their stake instead — pies never vanish.
- */
+// Whole pool to the winning side pro-rata, largest-remainder rounding so payouts sum to the pool
+// exactly. If nobody held the winning side, everyone is refunded: pies never vanish.
 export function settle(positions: Map<string, Position>, winner: Side): SettlementResult {
   let totalPoolC = 0;
   let winPoolC = 0;
@@ -84,7 +75,7 @@ export function settle(positions: Map<string, Position>, winner: Side): Settleme
     return { payoutsC, autoRefunded: true, totalPoolC };
   }
 
-  // Deterministic order so remainder cents always land the same way.
+  // Sorted so remainder cents always land the same way.
   const winners = [...positions.entries()]
     .map(([id, pos]) => ({ id, stakeC: winner === "yes" ? pos.yesC : pos.noC }))
     .filter((w) => w.stakeC > 0)
@@ -110,7 +101,7 @@ export function settle(positions: Map<string, Position>, winner: Side): Settleme
   return { payoutsC, autoRefunded: false, totalPoolC };
 }
 
-/** Refund every participant their committed stake (creator voided the market). */
+// The creator voided the market.
 export function refundAll(positions: Map<string, Position>): Map<string, number> {
   const refunds = new Map<string, number>();
   for (const [id, pos] of positions) {

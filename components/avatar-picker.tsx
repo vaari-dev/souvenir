@@ -6,10 +6,7 @@ import { ActError, useRefreshingAct } from "./use-act";
 
 const SIDE = 256;
 
-/**
- * Center-crop to a square and downscale before upload, so any phone photo
- * lands well under the server's 512 KB cap.
- */
+/** Center-crop to a square and downscale so a phone photo lands under the server's 512 KB cap. */
 async function downscale(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const crop = Math.min(bitmap.width, bitmap.height);
@@ -38,7 +35,6 @@ async function downscale(file: File): Promise<Blob> {
   });
 }
 
-/** Shown only on your own member page: upload a picture that replaces the monogram. */
 export function AvatarPicker({ hasCustom }: { hasCustom: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { pending, error, act } = useRefreshingAct();

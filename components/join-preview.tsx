@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { secretFromFragment, unwrapPreview } from "@/lib/keys";
 import { stashSecret } from "./take-key";
 
-/** A few open questions, sealed under the link's secret by the phone that minted it. */
 export function JoinPreview({ code, sealed }: { code: string; sealed: string | null }) {
   const [preview, setPreview] = useState<{ name: string; questions: string[] } | null>(null);
   useEffect(() => {

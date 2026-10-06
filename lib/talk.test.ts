@@ -24,7 +24,6 @@ import {
   worthSaying,
 } from "./talk.ts";
 
-/** The pair this ships with, and the one every failure will be about. */
 const THAI = resolvePair("en", "TH");
 
 describe("the pair", () => {
@@ -47,7 +46,6 @@ describe("the pair", () => {
       for (const form of Object.values(d.them.particles ?? {})) {
         expect(form.native).not.toBe("");
         expect(form.roman).not.toBe("");
-        // The interpreter is given the rule as a sentence, not a language name.
         expect(form.prompt).toMatch(/\.$/);
         expect(form.prompt).toContain(form.native);
       }
@@ -137,8 +135,7 @@ describe("sideOf", () => {
   });
 
   it("trusts the button entirely when both sides share a script", () => {
-    // Hindi against Hindi is refused, but a pair that shares Devanagari would
-    // get no evidence from the script and must not pretend otherwise.
+    // A shared script gives no evidence.
     const shared: Pair = {
       ...THAI,
       us: HOME.hi,

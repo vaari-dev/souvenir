@@ -7,12 +7,9 @@ import { routes } from "@/lib/routes";
 import { ActError, useRefreshingAct } from "./use-act";
 
 /**
- * A recovery link is a key to this member's seat in somebody else's hand, and
- * this is the half of the announcement aimed at the member it names: on every
- * page, until the link is shut, spent, or expired — and for a spent one, until
- * they have had a week to notice the passkey it added. The trip's members page
- * tells the table; being impossible to miss is the check on the whole
- * mechanism, so a member who never asked can stop it in the one tap.
+ * The half of a recovery announcement aimed at the member it names, on every page until the link
+ * is shut, spent or expired — and, once spent, for a week, to notice the passkey it added. The
+ * members page tells the table; being impossible to miss is the check on the whole mechanism.
  */
 export function RecoveryNotice({
   live,

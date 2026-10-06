@@ -6,7 +6,7 @@ export const alt = "A prediction from a friend trip on Souvenir";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// System fonts only: the card has to render in the time a chat gives it.
+// System fonts only: a chat gives the card little time to render.
 export default async function Image({ params }: { params: Promise<{ marketId: string }> }) {
   const { marketId } = await params;
   const card = await cardOf(marketId);

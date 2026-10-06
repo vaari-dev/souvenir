@@ -11,8 +11,8 @@ export default async function BillsPage({ params }: { params: Promise<{ tripId: 
   const { me, trip } = await requireTrip(tripId);
   const t = lingoOf(me.lingo);
   const currencies = tripCurrencies(trip);
-  // Foreign first, home last (lib/trips tripCurrencies). The rate is public
-  // data and names only the pair; the bills it prices never leave the phone.
+  // Foreign first, home last (lib/trips tripCurrencies). The rate is public and names only the
+  // pair; the bills stay on the phone.
   const rate = isDomestic(trip) ? null : await latestRate(currencies[0], currencies[1]);
 
   return (

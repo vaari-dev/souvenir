@@ -7,8 +7,7 @@ import { linkState } from "@/lib/links";
 
 const EYEBROW = "Back to your seat";
 
-// A recovery link *becomes* a member rather than creating one, so the page
-// names whose seat it is before offering the button.
+// A recovery link becomes a member, so the page names whose seat it is first.
 export default async function RecoverPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const [row, session] = await Promise.all([findRecovery(code), getSession()]);

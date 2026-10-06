@@ -1,6 +1,5 @@
-// What the console does while it holds a trip's key for the one moment it
-// exists in the clear (AGENTS.md, "keys move only through people"): seal rows
-// under it, and mint one rekey link per member to hand out by hand.
+// What the console does while it holds a trip's key in the clear (AGENTS.md, "keys move only
+// through people"): seal rows under it, mint a rekey link per member.
 
 import { exportKey, newKey, seal } from "../lib/crypto.ts";
 import { mintRekeyFromConsole } from "../lib/data.ts";

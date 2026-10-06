@@ -8,7 +8,6 @@ import { fmtDate } from "@/lib/format";
 import { useMintInvite } from "./invite-links";
 import { ActError, useAct } from "./use-act";
 
-/** One open door for the whole group, until it expires or an organiser shuts it. */
 export function GroupLink({
   existing,
 }: {

@@ -1,6 +1,5 @@
-// Invite links: the invite itself is the credential — a random code whoever holds can join with.
-// The code is stored as-is so a link can be re-shared; it survives by being short-lived and
-// revocable rather than unreadable. Personal and group links get the same week: the link carries
+// Invite links: the code is the credential, stored as-is, so a link survives by being short-lived
+// and revocable rather than unreadable. Personal and group links both get a week: the link carries
 // the trip's key, and minting again is one tap.
 
 import { DAY_MS, expiresAfter } from "./links.ts";
@@ -9,7 +8,7 @@ export const INVITE_TTL_MS = 7 * DAY_MS;
 
 export type InviteState = "live" | "used" | "expired";
 
-/** Used beats expired; an open link is never spent. */
+// Used beats expired; an open link is never spent.
 export function inviteState(
   invite: { expiresAt: Date; useCount: number; isOpen: boolean },
   now: Date,
@@ -22,12 +21,12 @@ export function expiresAtFrom(now: Date): Date {
   return expiresAfter(now, INVITE_TTL_MS);
 }
 
-/** The link an inviter copies. `baseUrl` is AUTH_URL, already trailing-slash free. */
+// `baseUrl` is AUTH_URL, already trailing-slash free.
 export function inviteUrl(baseUrl: string, code: string): string {
   return `${baseUrl}/join/${code}`;
 }
 
-/** The one live group link (newest wins) and the personal invites still waiting. */
+// One live group link (newest wins) and the personal invites still waiting.
 export function partitionInvites<T extends { expiresAt: Date; useCount: number; isOpen: boolean }>(
   rows: readonly T[],
   now: Date,

@@ -1,16 +1,9 @@
-// Profile pictures: what counts as a valid upload, which picture a member
-// shows, and the monogram everyone falls back to. Pure — the uploaded bytes
-// themselves live in the `avatars` table and move through lib/data.ts.
-
-/** Hard cap on stored avatar bytes; the client downscales well below this. */
+/** The client downscales well below this. */
 export const MAX_AVATAR_BYTES = 512 * 1024;
 
 export type AvatarImageType = "image/jpeg" | "image/png" | "image/webp";
 
-/**
- * Identify an image by its magic bytes — the client's claimed MIME type is
- * never trusted, since these bytes are served back to every member's browser.
- */
+/** Magic bytes, never the claimed MIME type: these bytes are served to every member's browser. */
 export function sniffImageType(bytes: Uint8Array): AvatarImageType | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
     return "image/jpeg";
@@ -23,25 +16,13 @@ export function sniffImageType(bytes: Uint8Array): AvatarImageType | null {
   return null;
 }
 
-/**
- * The picture a member shows, or null for the generated monogram below. Only
- * an upload counts: `members.image` holds a googleusercontent URL, which is a
- * third-party identifier we are in the business of shedding, so nothing reads
- * it any more. `avatarUpdatedAt` doubles as the cache-buster so a re-upload is
- * visible immediately.
- */
+/** Null means the monogram. Only an upload counts; `avatarUpdatedAt` doubles as cache-buster. */
 export function avatarSrc(member: { id: string; avatarUpdatedAt: Date | null }): string | null {
   if (!member.avatarUpdatedAt) return null;
   return `/api/avatar/${member.id}?v=${member.avatarUpdatedAt.getTime()}`;
 }
 
-// ---------- the generated fallback ----------
-
-/**
- * Gradient pairs for generated avatars. Deep enough that white initials stay
- * legible on either theme, and distinct enough to tell six friends apart at
- * 26px in the header.
- */
+// Deep enough for white initials on either theme, distinct enough at 26px.
 export const AVATAR_TINTS: readonly (readonly [string, string])[] = [
   ["#1f4a38", "#2f6b4f"], // felt
   ["#2b3f8f", "#4257b2"], // indigo
@@ -55,11 +36,7 @@ export const AVATAR_TINTS: readonly (readonly [string, string])[] = [
   ["#8c3d10", "#a85a1c"], // amber
 ];
 
-/**
- * Up to two letters standing in for a member: initials for a full name, the
- * first two letters for a single one. Falls back to "?" so a name of pure
- * punctuation still renders something.
- */
+/** "?" when the name is pure punctuation. */
 export function initials(name: string): string {
   const words = name
     .trim()
@@ -72,11 +49,7 @@ export function initials(name: string): string {
   return letters.join("").toUpperCase();
 }
 
-/**
- * The colour a generated avatar uses, keyed on the member id rather than the
- * name — an id never changes, so a member who renames keeps the face the group
- * already recognises, and two people with the same initials still differ.
- */
+/** Keyed on id, not name: a rename keeps the face, and equal initials still differ. */
 export function avatarTint(seed: string): readonly [string, string] {
   let hash = 0;
   for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) % 0x7fffffff;

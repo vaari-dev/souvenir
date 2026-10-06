@@ -6,7 +6,6 @@ export function firstName(member: Person): string {
   return member.name.split(" ")[0];
 }
 
-/** Today in the member's own timezone, as the YYYY-MM-DD a date input wants. */
 export function todayLocal(): string {
   return new Date().toLocaleDateString("en-CA");
 }

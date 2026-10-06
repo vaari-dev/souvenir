@@ -49,7 +49,6 @@ export interface RosterMember extends Person {
 
 type People = Map<string, Person>;
 
-/** What the record calls a member whose account is gone. */
 export const DEPARTED_NAME = "Departed member";
 
 const departed = (id: string): Person => ({ id, name: DEPARTED_NAME, avatarUpdatedAt: null });
@@ -61,7 +60,7 @@ const newestFirst = (a: Date, b: Date) => b.getTime() - a.getTime();
 const byResolved = (a: { resolvedAt: Date | null }, b: { resolvedAt: Date | null }) =>
   (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0);
 
-/** The roster plus anyone the log names whose seat is gone: deletion scrubs the name, not the record. */
+// Includes anyone the log names whose seat is gone: deletion scrubs the name, not the record.
 export function peopleOf(roster: readonly RosterMember[], state: TripState): People {
   const people: People = new Map(roster.map((m) => [m.id, m]));
   const note = (id: string) => {
@@ -85,7 +84,6 @@ export function peopleOf(roster: readonly RosterMember[], state: TripState): Peo
 
 const settled = (state: TripState) =>
   [...state.markets.values()].filter((m) => m.status !== "open");
-/** Who reacted one way to a prediction, oldest first. */
 const reactorIds = (state: TripState, marketId: string, kind: "upvote" | "watch") =>
   state.reactions.flatMap((r) => (r.marketId === marketId && r.kind === kind ? [r.memberId] : []));
 
@@ -148,8 +146,7 @@ export function marketView(
   };
 }
 
-/** Open and resolved predictions, and the For-you rail for the viewer. */
-/** `seen` is which predictions this phone has opened — kept on the phone, never in the log. */
+/** `seen`: predictions this phone has opened, kept on the phone, never in the log. */
 export function listMarkets(
   state: TripState,
   people: People,
@@ -217,7 +214,6 @@ function toItem(state: TripState, people: People, row: LedgerRow): ActivityItem 
   };
 }
 
-/** The trip's latest pie movements, newest first. */
 export function recentActivity(state: TripState, people: People, limit = 12): ActivityItem[] {
   return [...state.ledger]
     .reverse()
@@ -225,7 +221,6 @@ export function recentActivity(state: TripState, people: People, limit = 12): Ac
     .map((row) => toItem(state, people, row));
 }
 
-/** One prediction's calls (newest first) and the settlement that stands. */
 export function marketActivity(
   state: TripState,
   people: People,
@@ -234,14 +229,13 @@ export function marketActivity(
   const items = marketRows(state, marketId).map((row) => toItem(state, people, row));
   return {
     activity: items.filter((i) => i.row.kind === "bet" || i.row.kind === "switch").reverse(),
-    // Anything before the last reopen was handed back and is no longer where the pool went.
+    // Settlements before the last reopen were handed back.
     settlements: items
       .slice(items.findLastIndex((i) => i.row.kind === "reversal") + 1)
       .filter((i) => i.row.kind === "payout" || i.row.kind === "refund"),
   };
 }
 
-/** Everything one member's pies did, newest first. */
 export function memberLedger(state: TripState, people: People, memberId: string): ActivityItem[] {
   return state.ledger
     .filter((r) => r.memberId === memberId)
@@ -253,7 +247,6 @@ export function netOf(state: TripState, memberId: string): number {
   return state.ledger.reduce((n, r) => (r.memberId === memberId ? n + r.balanceDeltaC : n), 0);
 }
 
-/** One member's outcome in every resolved prediction they took part in, newest first. */
 export function memberResults(state: TripState, memberId: string): MarketResult[] {
   return settled(state)
     .sort(byResolved)
@@ -409,7 +402,6 @@ export function marketComments(state: TripState, people: People, marketId: strin
   return state.comments.filter((c) => c.marketId === marketId).map((c) => commentView(c, people));
 }
 
-/** Members who upvoted / are watching, oldest reaction first. */
 export function reactors(
   state: TripState,
   people: People,
@@ -453,7 +445,7 @@ export type InboxItem =
   | ({ kind: "comment" } & Talk)
   | ({ kind: "mention" } & Talk);
 
-/** Derived, not stored: the only read state is the membership's `seenAt` cursor. */
+// Derived; the only stored read state is the membership's `seenAt`.
 export function inbox(
   state: TripState,
   people: People,
@@ -464,7 +456,7 @@ export function inbox(
   const seen = seenAt?.getTime() ?? 0;
   const unread = (at: Date) => at.getTime() > seen;
 
-  // Predictions that concern me: created, called, or watched.
+  // Concerning me: created, called, or watched.
   const mine = new Set<string>();
   for (const m of state.markets.values()) if (m.creatorId === memberId) mine.add(m.id);
   for (const row of state.ledger) {
@@ -513,7 +505,7 @@ export function inbox(
     }
   }
 
-  // Talk on predictions that concern me or threads I joined, and every mention — once, as the mention.
+  // Talk on those or threads I joined, and every mention (once, as the mention).
   const talkedMarkets = new Set<string>();
   const talkedBills = new Set<string>();
   for (const c of state.comments) {
@@ -552,8 +544,7 @@ export function inbox(
 }
 
 // ---------- split bills ----------
-// Real money, apart from the pie ledger, sealed like everything else: a bill is its `bill.rev`
-// events, and the one that stands is the latest revision. The math is lib/split's.
+// Real money, apart from the pie ledger. A bill is its `bill.rev` events; the latest stands.
 
 export interface BillEntryView {
   member: Person;
@@ -573,7 +564,6 @@ export interface BillView {
   entries: BillEntryView[];
   createdBy: Person;
   createdAt: Date;
-  /** Who last touched it, when it isn't the creator's original. */
   editedBy: Person | null;
   editedAt: Date | null;
 }
@@ -611,7 +601,6 @@ function billView(bill: BillState, people: People): BillView | null {
   };
 }
 
-/** Live bills, newest date first. */
 function liveBills(state: TripState, people: People): BillView[] {
   return [...state.bills.values()]
     .flatMap((b) => billView(b, people) ?? [])
@@ -623,7 +612,6 @@ const forNets = (v: BillView) => ({
   entries: v.entries.map((e) => ({ memberId: e.member.id, paidC: e.paidC, owedC: e.owedC })),
 });
 
-/** Every live bill, newest date first, and the balances per currency. */
 export function billsOverview(
   state: TripState,
   people: People,
@@ -647,10 +635,8 @@ export function billsOverview(
 }
 
 /**
- * The whole trip settled in the home currency: every member's balance across
- * both currencies, the foreign side read at the day's rate plus the forex
- * charge (lib/fx), and one plan that clears it. Null when the bills hold a
- * currency the rate doesn't cover, in which case each currency settles alone.
+ * The whole trip settled in the home currency at the day's rate plus the forex charge (lib/fx).
+ * Null when a bill's currency has no rate; each currency then settles alone.
  */
 export interface TripSettlement {
   home: Currency;
@@ -691,7 +677,6 @@ export function tripSettlement(
 export interface MemberSplitView {
   /** Outstanding per currency; positive = the group owes them. */
   balances: { currency: Currency; netC: number }[];
-  /** Bills they paid on or had a share covered, newest first, with their line. */
   bills: { bill: BillView; line: MemberBillLine }[];
 }
 
@@ -707,7 +692,6 @@ export function memberSplit(state: TripState, people: People, memberId: string):
   };
 }
 
-/** Every bill's comments, keyed by bill id, oldest first. */
 export function billComments(state: TripState, people: People): Record<string, CommentView[]> {
   const byBill: Record<string, CommentView[]> = {};
   for (const c of state.comments) {
@@ -718,7 +702,7 @@ export function billComments(state: TripState, people: People): Record<string, C
   return byBill;
 }
 
-/** What addBill used to refuse, said before the event is sealed. */
+/** addBill's refusals, raised before the event is sealed. */
 export function billError(input: {
   kind?: BillKind;
   onDate: string;
@@ -744,7 +728,6 @@ export function billError(input: {
 
 // ---------- the card ----------
 
-/** The public face of one resolved prediction: first names and pies, nothing else. */
 export interface MarketCard {
   question: string;
   status: MarketState["status"];
@@ -775,7 +758,7 @@ export function marketCard(state: TripState, people: People, marketId: string): 
 
 // ---------- drafting ----------
 
-/** What createMarket used to refuse, said before the event is sealed. */
+/** createMarket's refusals, raised before the event is sealed. */
 export function draftError(question: string, criteria: string): string | null {
   const q = question.trim();
   const c = criteria.trim();
@@ -795,7 +778,6 @@ export function commentError(body: string): string | null {
 
 // --- the phrasebook -------------------------------------------------------------
 
-/** The trip's kept phrases, newest first. */
 export function phrasebook(state: TripState): SavedPhrase[] {
   return [...state.phrases.values()]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

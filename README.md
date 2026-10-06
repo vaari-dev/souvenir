@@ -43,47 +43,40 @@ neither can anyone with the database.
 
 ## Private trips
 
-The full design is [`docs/private-trips.md`](docs/private-trips.md). In short:
+The design is [`docs/private-trips.md`](docs/private-trips.md). In short:
 
-- **The log.** Everything a member does on a trip is an event, sealed on the
-  phone (AES-256-GCM, `lib/crypto.ts`) under the trip's key and appended to
-  `events`. The server checks the seat, the epoch, the size and the envelope's
-  shape (`appendEvent`) — nothing else. Every phone replays the whole log
-  (`lib/replay.ts`: the cap, one side per member, creator resolves, organiser
-  reopens, zero-sum) and derives every page from that state (`lib/views.ts`).
-- **The key.** Made on the phone that opens the trip and kept in the phone's
-  keyring (IndexedDB, `components/keyring.tsx`). It moves only through people:
-  an invite link carries it in the URL fragment, which browsers never send; a
-  *key link* (`/k/[code]`, `lib/rekeys.ts`, 30 minutes, minted by any member
-  for any seat) puts it on a second phone or a replacement one, and is how a
-  member back from losing every passkey gets it too. A link is shown once,
-  where it was minted, never re-shown. The server stores keys only
-  wrapped under secrets it has never seen, and no path returns one to it.
-- **Leaving.** A key cannot be taken back from a phone, so a seat that goes
-  (removed, left, deleted) marks the trip for rotation: an organiser's phone
-  makes a new key, wraps it to the member key each seat announced in the log,
-  and the server turns the epoch only when nobody is left out. The departed
-  member keeps what was written until then and reads nothing after.
-- **The backup.** A passkey with the PRF extension derives the same secret on
-  every device it syncs to; the keyring is sealed under it in `keyring_wraps`
-  and restored, silently, after a sign-in with that passkey. No PRF, no
-  backup — the way back is a key link.
-- **What stays readable**, on purpose: the trip's shape (destination, dates,
-  currencies, cap), the roster and roles, and who appended what when and how
-  big it was. The name, the phrasebook and every bill are sealed like the
-  rest. A verdict card (`/card/[id]`) is plaintext because a member's phone
-  published it on share; anyone on the trip can take it down.
-- **Nothing is left in the clear.** The plaintext prediction, bill, phrase
-  and name columns are gone; the schema holds ciphertext, shape and roster.
+- **The log.** Everything a member does is an event, sealed on the phone
+  (AES-256-GCM, `lib/crypto.ts`) under the trip's key and appended to
+  `events`. The server checks the seat, epoch, size and envelope shape
+  (`appendEvent`), nothing else. Every phone replays the whole log
+  (`lib/replay.ts`) and derives every page from it (`lib/views.ts`).
+- **The key.** Made on the phone that opens the trip, kept in its keyring
+  (IndexedDB). It moves only through people: an invite link carries it in
+  the URL fragment, which browsers never send; a *key link* (`/k/[code]`,
+  30 minutes, minted by any member for any seat) puts it on a second or
+  replacement phone, and is how a member who lost every passkey gets it back.
+  Links are shown once, where minted. The server stores keys only wrapped
+  under secrets it has never seen.
+- **Leaving.** A key cannot be taken back, so a seat that goes marks the trip
+  for rotation: an organiser's phone makes a new key, wraps it to each seat's
+  announced member key, and the server turns the epoch only when nobody is
+  left out. The departed member reads nothing written after.
+- **The backup.** A PRF-capable passkey derives the same secret on every
+  device it syncs to; the keyring is sealed under it in `keyring_wraps` and
+  restored after a sign-in with that passkey. No PRF, no backup; the way
+  back is a key link.
+- **Readable on purpose**: the trip's shape (destination, dates, currencies,
+  cap), the roster and roles, and who appended what when and how big. The
+  name, phrasebook and bills are sealed. A verdict card is plaintext because
+  a member's phone published it on share; anyone on the trip can take it down.
 
 ## Where the trip goes
 
-A trip is pointed at one of twenty-one **destinations**, and that is the only
-place the code knows about a country: one line in `lib/talk.ts`
-`DESTINATIONS` names the local language (code, BCP-47 tag, script, which
-voice to prefer, and — where the language ends a polite sentence by who is
-speaking, as Thai does — the forms and the rule the interpreter is given),
-the currency, and the IANA zone the trip's days run on. From that line:
+A trip is pointed at one of twenty-one **destinations**, the only place the
+code knows about a country: one line in `lib/talk.ts` `DESTINATIONS` names
+the local language (code, BCP-47 tag, script, preferred voice, and where the
+language ends a polite sentence by speaker, as Thai does, the forms and the
+interpreter's rule), the currency, and the IANA zone the trip's days run on.
 
 - **Two currencies, at most.** The trip settles in the group's home currency
   (INR unless said otherwise) and spends the destination's; a domestic trip
@@ -122,17 +115,9 @@ members page and in a banner to the member it names; the console
 trip so `@mentions` resolve. **Avatars** are an upload or a monogram seeded
 by member id.
 
-**The tests are the spec.** Each pure module carries its documentation as a
-test file beside it: `engine` (settlement, fuzz-tested zero-sum), `replay`
-(the rules of a sealed trip, fuzzed over adversarial logs), `views` (every
-page derived from replayed state), `stats` (outcomes, ROI, rivalries),
-`recommend` (For-you ranking and reason chips), `pies` (centi-pie math),
-`split` and `fx` (bills and the one-currency settlement), `crypto`, `keys`,
-`events`, `links`, `invites`, `rekeys`, `recovery` (sealing and every kind
-of link), `webauthn` and `cbor` (passkeys), `email`, `mentions`, `avatar`,
-`talk` (the pair, turn-taking, voices, the server voice map), `phrases`,
-`trips`, `starters`. `pnpm test` runs pure logic only — no UI tests, by
-design.
+**The tests are the spec.** Every pure module in `lib/` has a `*.test.ts`
+beside it (list in `AGENTS.md`). `pnpm test` runs pure logic only; no UI
+tests, by design.
 
 **Vocabulary.** UI: *prediction, call, resolve, pool, stamp*. Code and schema:
 `market`, `stake`, `settle*`, `amountC`. Keep them apart. Stamps are never money
@@ -159,17 +144,15 @@ pnpm seed                     # optional demo data
 pnpm dev                      # http://localhost:3000
 ```
 
-Without Google credentials, `AUTH_DEV_LOGIN=true` enables a passwordless dev
-login (any email). **Never in production.** Full
-stack in Docker instead: `docker compose up -d --build` (db → one-shot
-`migrate` → app).
+`AUTH_DEV_LOGIN=true` enables a passwordless dev login (any email). **Never
+in production.** Full stack in Docker: `docker compose up -d --build` (db →
+one-shot `migrate` → app).
 
-`/talk` is the one page that cannot be tested on a laptop: it wants a
-microphone, and a browser only hands one over in a secure context. `localhost`
-counts; a LAN address does not. So reach it from a phone with `pnpm dev:https`
-(self-signed, accept the warning) and set `AUTH_URL` to the same
-`https://<your-ip>:3000`. Passkeys stay off there — an IP address cannot be a
-WebAuthn relying party — so sign in with the dev login.
+`/talk` needs a microphone, which browsers hand over only in a secure context
+(`localhost` counts, a LAN address does not). Reach it from a phone with
+`pnpm dev:https` (self-signed; accept the warning) and set `AUTH_URL` to the
+same `https://<your-ip>:3000`. Passkeys are off there (an IP cannot be a
+WebAuthn relying party); use the dev login.
 
 ## Configuration
 
@@ -189,49 +172,42 @@ list. Highlights:
 | `SPEECH_VOICES` / `SPEECH_VOICE_US` / `SPEECH_VOICE_THEM` | Which voice says which language (`th=…,hi=…`), and the fallback per side; a language with no voice gets the device's or none. `pnpm speech:check` hears every language once |
 | `FX_BASE_URL` | Where the day's exchange rate comes from, for settling the whole trip in the home currency (currency-api shape; defaults to the public mirror) |
 
-Anyone can open an account (a passkey from the front page, or Google) and a
-trip. Trips are invite-only: organisers mint a single-use or group invite
-link on the trip's members page; whoever opens it sees the table, picks a
-name, creates a passkey, and is in — no email and no Google account anywhere
-in that flow. The link carries the trip's key in its fragment, so copy it
-whole. Members are 18+ and accept the terms at sign-up; accounts can be
-deleted from the account page.
+Anyone can open an account (passkey or Google) and a trip. Trips are
+invite-only: organisers mint a single-use or group link on the members page;
+whoever opens it sees the table, picks a name, creates a passkey, and is in,
+with no email or Google account. The link carries the trip's key in its
+fragment, so copy it whole. Members are 18+ and accept the terms at sign-up;
+accounts can be deleted from the account page.
 
 ## Logs
 
-JSON lines on stdout (pino, `LOG_LEVEL`), one record per line, with the
-build's commit on each. In production Next's own output and its
-uncaught-error handlers go through the same logger, so a collector never
-meets a bare line; every request failure carries its route template and
-digest, and a phone that breaks reports the error's name, message, stack and a
-masked path through one server action. No line carries an email, a link code,
-a key, or anything from a sealed trip.
+JSON lines on stdout (pino, `LOG_LEVEL`), the build's commit on each. In
+production Next's own output and uncaught errors go through the same logger;
+request failures carry route template and digest; a phone that breaks
+reports name, message, stack and a masked path through one server action. No
+line carries an email, a link code, a key, or anything from a sealed trip.
 
 ## Verifying what runs
 
-The promise on `/privacy` rests on the code that runs on the phone, which the
-server serves. Every image is built by `.github/workflows/ci.yml` from one
-commit, with the commit baked in (`GIT_SHA`, shown in the footer) and a
-Sigstore provenance attestation signed by the workflow's identity. A member
-who wants to check writes to `CONTACT_EMAIL` naming the build in the footer
-and gets the source for that commit and the attestation
-(`gh attestation verify oci://ghcr.io/vaari-dev/souvenir:<sha7> --owner vaari-dev`
-proves the image came from it; a build from before the repository moved,
-2026-09-30, is `ghcr.io/pungoyal-labs/souvenir` with `--owner pungoyal-labs`).
+The promise on `/privacy` rests on the code the server serves to the phone.
+`.github/workflows/ci.yml` builds every image from one commit, bakes it in
+(`GIT_SHA`, shown in the footer) and signs a Sigstore provenance attestation.
+A member writes to `CONTACT_EMAIL` naming the footer's build and gets the
+source for that commit and the attestation
+(`gh attestation verify oci://ghcr.io/vaari-dev/souvenir:<sha7> --owner vaari-dev`).
 Verification is on request, not public, so the repository can be private.
 
 ## Quality gates
 
-`pnpm test` (pure logic only — no UI tests, by design) · `pnpm lint` ·
-`pnpm tsc --noEmit`. Pre-commit runs all three; CI
-(`.github/workflows/ci.yml`) runs them, builds an arm64 image to GHCR, and
-deploys. `pnpm lingo:gen` compiles `lingo.yaml` (`dev` and `build` run it).
+`pnpm test` · `pnpm lint` · `pnpm tsc --noEmit`. Pre-commit runs all three;
+CI runs them, builds an arm64 image to GHCR, and deploys. `pnpm lingo:gen`
+compiles `lingo.yaml` (`dev` and `build` run it).
 
 ## Deployment (OCI over SSH)
 
-Push to `main`: verify → build & push one arm64 GHCR image (`:short-sha` +
+Push to `main`: verify → build and push one arm64 GHCR image (`:short-sha` +
 `:latest`) → SSH to the OCI box, pull the pinned tag, `docker compose up -d`
-(one-shot `migrate` container, then `app`).
+(one-shot `migrate`, then `app`).
 
 Configure a GitHub **environment named `oracle-cloud`**:
 
@@ -265,11 +241,9 @@ docker compose run --rm -v "$PWD/clips:/app/clips" migrate node scripts/speech-c
 
 ## Documents
 
-- [`AGENTS.md`](AGENTS.md) — the rules of the codebase, for anyone (or
-  anything) changing it.
-- [`docs/private-trips.md`](docs/private-trips.md) — the end-to-end
-  encryption design, and what shipped differently from it.
-- [`docs/gtm.md`](docs/gtm.md) — the go-to-market plan and the numbers to
-  watch; [`docs/launch/`](docs/launch/) — the deploy checklist and launch
-  copy; [`docs/research/`](docs/research/) — the research behind the plan.
-- [`docs/ideas.md`](docs/ideas.md) — the shelf.
+- [`AGENTS.md`](AGENTS.md): the rules of the codebase.
+- [`docs/private-trips.md`](docs/private-trips.md): the encryption design.
+- [`docs/gtm.md`](docs/gtm.md): go-to-market plan and numbers;
+  [`docs/launch/`](docs/launch/): deploy checklist and launch copy;
+  [`docs/research/`](docs/research/): the research behind the plan.
+- [`docs/ideas.md`](docs/ideas.md): the shelf.

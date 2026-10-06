@@ -24,7 +24,6 @@ function openDb(): Promise<IDBDatabase> {
   return db;
 }
 
-/** Every cached row of one trip, in the trip's order; empty where there is no storage. */
 export async function loadRows(tripId: string): Promise<EventRow[]> {
   try {
     const store = (await openDb()).transaction(STORE, "readonly").objectStore(STORE);
@@ -39,7 +38,7 @@ export async function loadRows(tripId: string): Promise<EventRow[]> {
   }
 }
 
-/** Best effort: a phone that cannot keep rows fetches the whole log next time, as before. */
+/** Best effort: without storage the next visit fetches the whole log. */
 export async function saveRows(rows: readonly EventRow[]): Promise<void> {
   if (rows.length === 0) return;
   try {

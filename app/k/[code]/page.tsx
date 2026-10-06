@@ -9,8 +9,8 @@ import { placeOf } from "@/lib/trips";
 
 const EYEBROW = "Your key";
 
-// Only the named member's session can spend a rekey link, so a signed-out phone
-// is sent to sign in and back here, fragment and all.
+// Only the named member's session can spend a rekey link: signed out, sign in and come back,
+// fragment included.
 export default async function RekeyPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const [row, me] = await Promise.all([findRekey(code), currentMember()]);

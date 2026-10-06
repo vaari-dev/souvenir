@@ -22,10 +22,8 @@ const seat = ({ id, name, avatarUpdatedAt, joinedAt, role }: RosterMember): Rost
 });
 
 /**
- * The store every page under /t/[tripId] reads. The sealed log itself is not
- * shipped here: the phone keeps its rows between visits (components/log-cache)
- * and fetches only what landed since, so a re-render of this layout costs one
- * small poll, not the whole log.
+ * The store every page under /t/[tripId] reads. The log is not shipped here: the phone caches
+ * its rows (components/log-cache) and polls only what landed since.
  */
 export default async function TripLayout({
   children,

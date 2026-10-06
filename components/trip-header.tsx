@@ -7,7 +7,6 @@ import { Pies } from "./pies";
 import { TripNav } from "./trip-nav";
 import { useTrip } from "./trip-store";
 
-/** The top of every trip page. The number and the inbox dot come from the replayed trip; a keyless phone shows neither. */
 export function TripHeader({
   tripId,
   place,

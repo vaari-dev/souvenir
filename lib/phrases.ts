@@ -1,24 +1,8 @@
-// The phrases somebody kept.
+// The one exception to /talk dying with the tab: a member points at a turn and names it. A
+// phrasebook they wrote, never a transcript.
 //
-// A conversation on /talk still dies with the tab — that is the whole shape of
-// the page. This is the one deliberate exception: a member points at a turn,
-// gives it a name, and that single line outlives the tab. It is a phrasebook
-// they wrote themselves, not a transcript: only what was pointed at, only
-// under a name they chose, and gone the moment they delete it.
-//
-// The name is turned into a slug, which is what a member actually holds on to
-// — short, typeable, and the same string every time, so "no-peanuts" means the
-// one line at the top of the list rather than whichever of three near-identical
-// ones was saved last. It is unique per member and per member only; two people
-// keeping their own "taxi" is two phrases, not a collision.
-//
-// A saved phrase carries the language it is in, because the pair is the trip's
-// configuration and configuration moves. A line kept on one trip and replayed
-// on one pointed somewhere else must still be read by a voice for its own
-// language, or not read at all — never handed to whatever voice the pair
-// happens to name now.
-//
-// Pure data in, pure data out; lib/data.ts does the I/O.
+// A kept phrase carries its own language because the pair is configuration and moves: a line
+// replayed on another trip is read by a voice for its own language, or not at all.
 
 import type { PhraseKeep } from "./events.ts";
 import {
@@ -31,44 +15,35 @@ import {
   worthSaying,
 } from "./talk.ts";
 
-/** As typed by whoever saved it, before slugging. Longer than this is a note. */
+/** Before slugging. */
 export const MAX_PHRASE_NAME = 40;
 
-/** A slug is a handle, not a sentence. */
 export const MAX_SLUG = 40;
 
-/**
- * How many a trip keeps. A phrasebook you can read down in a night market is
- * the point; past this it is a log, and the thing you wanted is buried.
- */
+// Past this a phrasebook is a log, and the line you wanted is buried.
 export const MAX_PHRASES = 60;
 
 export interface SavedPhrase {
   id: string;
-  /** The handle: unique among the trip's phrases, and what the list shows. */
+  /** Unique among the trip's phrases. */
   slug: string;
   /** Who said it. The phrase itself is in the *other* side's language. */
   side: Side;
-  /** What was heard, in the language it was said in. */
   heard: string;
-  /** What comes out of the phone. */
   said: string;
   roman?: string;
   literal?: string;
-  /** What `said` is in, named as it was named on the day it was saved. */
+  /** What `said` is in, as named when saved. */
   language: string;
-  /** BCP-47 for `said`, for choosing a voice long after the trip. */
+  /** BCP-47 for `said`. */
   tag: string;
-  /** Who kept it — the one member who can drop it. */
+  /** The one member who can drop it. */
   keptBy: string;
 }
 
 /**
- * A name reduced to a handle: lower case, letters and numbers, dashes for
- * everything between. Combining marks are letters here — a Thai tone mark or a
- * Hindi matra is part of the word, and dropping them leaves a slug that is not
- * the word any more. Latin accents still fold, because there the folded
- * spelling is the one somebody would type.
+ * Combining marks are kept (a Thai tone mark or Hindi matra is part of the word); Latin
+ * accents fold, since the folded spelling is what gets typed.
  */
 export function slugify(name: string): string {
   return name
@@ -81,14 +56,7 @@ export function slugify(name: string): string {
     .replace(/-+$/, "");
 }
 
-/**
- * The slug this name gets, given the ones the member already holds. A repeat
- * is numbered rather than refused or overwritten: somebody saving "taxi" twice
- * wants both lines kept, and finding out which is which is a tap.
- *
- * Empty when the name had nothing in it to make a handle out of — the caller
- * turns that into the refusal, since it is the only one worth a message.
- */
+/** A repeat is numbered, not refused. Empty when the name has nothing to make a slug of. */
 export function uniqueSlug(name: string, taken: readonly string[]): string {
   const base = slugify(name);
   if (!base) return "";
@@ -101,26 +69,21 @@ export function uniqueSlug(name: string, taken: readonly string[]): string {
 }
 
 export interface PhraseVoice {
-  /** The language to read it in, whatever this deploy is pointed at now. */
   tag: string;
-  /** Which of the device's voices for it the group asked for, where it knows. */
   prefer?: VoicePreference;
   /**
-   * Which side the server should speak as, or null when this phrase is not in
-   * either of the pair's languages any more. The voice service is told a side
-   * and looks the language up itself, so a phrase from a previous destination
-   * has nothing true to tell it: the device's own voice or nothing.
+   * Null when the phrase is in neither of the pair's languages. The voice service is told a
+   * side and looks the language up itself, so there is nothing true to tell it.
    */
   side: Side | null;
 }
 
-/** Browsers spell a tag `xx-XX`, `xx_XX` or `xx`; all three mean the same language. */
+/** Tags may be `xx-XX`, `xx_XX` or `xx`. */
 function sameTag(a: string, b: string): boolean {
   const norm = (t: string) => t.toLowerCase().replace("_", "-").split("-")[0];
   return norm(a) === norm(b);
 }
 
-/** How to say a saved phrase out loud, on this device and on this deploy. */
 export function voiceFor(phrase: { tag: string }, pair: Pair): PhraseVoice {
   for (const side of ["us", "them"] as const) {
     const speaker = speakerOf(pair, side);
@@ -142,11 +105,7 @@ export interface KeepInput {
   literal?: string;
 }
 
-/**
- * A turn kept under a name, as the event the phone seals. The slug is decided
- * against the phrasebook as this phone sees it; replay refuses a second claim
- * on the same one. The language is the other side's, read off the pair.
- */
+/** The slug is decided against this phone's phrasebook; replay refuses a second claim on it. */
 export function keepPayload(
   input: KeepInput,
   pair: Pair,

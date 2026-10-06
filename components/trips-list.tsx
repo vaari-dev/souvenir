@@ -16,7 +16,6 @@ export interface TripRow {
   memberCount: number;
 }
 
-/** Every name is sealed under its trip's key, so the list opens them here, one keyring lookup each. */
 export function TripsList({ trips, sealedName }: { trips: TripRow[]; sealedName: string }) {
   const { status, keyring } = useKeyring();
   const [names, setNames] = useState<Record<string, string>>({});

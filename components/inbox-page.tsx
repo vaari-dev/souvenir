@@ -57,7 +57,6 @@ function itemKey(item: InboxItem): string {
   return `${item.kind}-${item.market.id}`;
 }
 
-/** Bill talk lands on /bills; everything else has a prediction page. */
 function itemHref(tripId: string, item: InboxItem): string {
   return item.market ? routes.market(tripId, item.market.id) : routes.bills(tripId);
 }

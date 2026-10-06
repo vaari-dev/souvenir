@@ -1,14 +1,11 @@
-// A member's keyring, and the links that carry keys between people.
-// See docs/private-trips.md §2–§4.
+// A member's keyring and the links that carry keys (docs/private-trips.md §2–§4).
 //
-// The keyring is one JSON object per member holding every trip key they have
-// ever been handed, by trip and by epoch, and their member key. It travels
-// as a blob under a key the server never sees — to IndexedDB on the phone, and
-// to `keyring_wraps` under each passkey's PRF secret.
+// The keyring holds every trip key a member was handed, by trip and epoch, plus their member
+// key. It is stored as a blob under a key the server never sees: IndexedDB, and `keyring_wraps`
+// under each passkey's PRF secret.
 //
-// A link's secret rides in the URL fragment, which the browser never sends.
-// The server stores what the link carries wrapped under that secret, so the
-// row is worthless without the link and the link is worthless without a seat.
+// A link's secret rides in the URL fragment, which the browser never sends; the server stores
+// only what the link carries, wrapped under that secret.
 
 import {
   CryptoError,
@@ -28,14 +25,14 @@ import {
 
 const KEYRING_VERSION = 1;
 
-/** Which purpose a keyring blob is sealed for — never the same as any link's. */
+// Never the same as any link's purpose.
 const KEYRING_PURPOSE = "keyring";
 
 export interface Keyring {
   v: typeof KEYRING_VERSION;
-  /** tripId → epoch (as a string key) → raw AES key, base64url. */
+  /** tripId → epoch → raw AES key, base64url. */
   trips: Record<string, Record<string, string>>;
-  /** The member's long-term key: the private half. The public half is announced in the log. */
+  /** The private half of the member key; the public half is announced in the log. */
   mk?: JsonWebKey;
 }
 
@@ -49,7 +46,7 @@ export function emptyKeyring(): Keyring {
   return { v: KEYRING_VERSION, trips: {} };
 }
 
-/** Everything both keyrings hold. Where both name the same key, the second wins. */
+// On a clashing trip key the second wins.
 export function mergeKeyrings(a: Keyring, b: Keyring): Keyring {
   const trips: Keyring["trips"] = {};
   for (const kr of [a, b]) {
@@ -58,7 +55,7 @@ export function mergeKeyrings(a: Keyring, b: Keyring): Keyring {
     }
   }
   const merged: Keyring = { v: KEYRING_VERSION, trips };
-  // The member key already announced in a log is the one to keep: the first, not the newest.
+  // Keep the first member key, not the newest: it is the one already announced in a log.
   const mk = a.mk ?? b.mk;
   if (mk) merged.mk = mk;
   return merged;
@@ -66,7 +63,6 @@ export function mergeKeyrings(a: Keyring, b: Keyring): Keyring {
 
 // --- trip keys ----------------------------------------------------------------
 
-/** A copy of the keyring with one more trip key in it. Never mutates. */
 export function withTripKey(kr: Keyring, tripId: string, epoch: number, raw: Uint8Array): Keyring {
   if (!Number.isInteger(epoch) || epoch < 0) throw new KeyringError("bad epoch");
   check32(raw, "trip key");
@@ -79,24 +75,19 @@ export function withTripKey(kr: Keyring, tripId: string, epoch: number, raw: Uin
   };
 }
 
-/** The raw key for one epoch of a trip, or null if this keyring never had it. */
 export function tripKeyOf(kr: Keyring, tripId: string, epoch: number): Uint8Array | null {
   const raw = kr.trips[tripId]?.[String(epoch)];
   return raw ? fromBase64Url(raw) : null;
 }
 
-/** True when the keyring can read the trip at the epoch the server says it is on. */
 export function holdsKey(kr: Keyring, tripId: string, epoch: number): boolean {
   return tripKeyOf(kr, tripId, epoch) !== null;
 }
 
-/** The CryptoKey for an epoch, ready to seal and open. */
 export async function tripCryptoKey(kr: Keyring, tripId: string, epoch: number) {
   const raw = tripKeyOf(kr, tripId, epoch);
   return raw ? importKey(raw) : null;
 }
-
-// --- link secrets -------------------------------------------------------------
 
 // --- the blob -----------------------------------------------------------------
 
@@ -109,11 +100,11 @@ const isTrips = (v: unknown): v is Keyring["trips"] =>
 const isStringList = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((x) => typeof x === "string");
 
-/** Validate a parsed keyring: shape only, so a bad blob fails loudly, not later. */
+// Shape only, so a bad blob fails loudly rather than later.
 export function parseKeyring(value: unknown): Keyring {
   if (!isRecord(value)) throw new KeyringError("not a keyring");
   if (value.v !== KEYRING_VERSION) throw new KeyringError("unknown keyring version");
-  // `links` (secrets of links this phone minted) was dropped; old blobs still carry it.
+  // Old blobs carry a `links` field; it is ignored.
   const { trips, mk } = value;
   if (!isTrips(trips)) throw new KeyringError("bad trips");
   const out: Keyring = { v: KEYRING_VERSION, trips };
@@ -138,7 +129,6 @@ export function decodeKeyring(bytes: Uint8Array): Keyring {
   return parseKeyring(parsed);
 }
 
-/** The keyring under a keyring key: what goes to IndexedDB and to `keyring_wraps`. */
 export function sealKeyring(kk: CryptoKey, kr: Keyring): Promise<string> {
   return sealBlob(kk, KEYRING_PURPOSE, encodeKeyring(kr));
 }
@@ -149,21 +139,16 @@ export async function openKeyring(kk: CryptoKey, blob: string): Promise<Keyring>
 
 // --- links --------------------------------------------------------------------
 
-/** What a link's fragment holds: a fresh secret. */
 export function newLinkSecret(): Uint8Array {
   return newSecret();
 }
 
-/** `https://…/join/CODE` → `https://…/join/CODE#<secret>`. */
 export function linkWithSecret(url: string, secret: Uint8Array): string {
   check32(secret, "link secret");
   return `${url}#${toBase64Url(secret)}`;
 }
 
-/**
- * The secret out of `location.hash` (with or without its `#`), or null when the link arrived
- * bare — copied without its fragment. Null is a keyless seat, not an error.
- */
+// Null means the link was copied without its fragment: a keyless seat, not an error.
 export function secretFromFragment(hash: string): Uint8Array | null {
   const text = hash.startsWith("#") ? hash.slice(1) : hash;
   if (!text) return null;
@@ -176,7 +161,6 @@ export function secretFromFragment(hash: string): Uint8Array | null {
   }
 }
 
-/** A trip key, wrapped for a link of one kind. The column value. */
 export async function wrapTripKey(secret: Uint8Array, purpose: LinkPurpose, raw: Uint8Array) {
   check32(raw, "trip key");
   return wrapForLink(secret, purpose, raw);
@@ -188,7 +172,6 @@ export async function unwrapTripKey(secret: Uint8Array, purpose: LinkPurpose, bl
   return raw;
 }
 
-/** The join page's peek at the table, wrapped for the link that carries it. */
 export interface InvitePreview {
   name: string;
   names: string[];
@@ -214,7 +197,7 @@ export async function unwrapPreview(secret: Uint8Array, blob: string): Promise<I
 
 // --- the trip's name ------------------------------------------------------------
 
-/** The name is sealed under the trip key on its own, so a trips list can show it without the log. */
+// Sealed on its own so a trips list can show it without the log.
 export function sealName(tk: CryptoKey, tripId: string, name: string): Promise<string> {
   return sealBlob(tk, `name:${tripId}`, utf8(name));
 }
@@ -225,20 +208,15 @@ export async function openName(tk: CryptoKey, tripId: string, blob: string): Pro
 
 // --- passkey backup -------------------------------------------------------------
 
-/** What every passkey's PRF is evaluated on; the authenticator's own secret makes the output its own. */
+// The authenticator's own secret makes the PRF output per-passkey.
 export const PRF_SALT = utf8("souvenir keyring v1");
 
-/** The key a passkey's PRF output opens this member's keyring backup with. */
 export function prfKeyringKey(prf: Uint8Array): Promise<CryptoKey> {
   return deriveKey(prf, "keyring:prf");
 }
 
-/**
- * The passkeys a phone that holds keys should be asked to hand over a PRF secret for: the
- * member's, minus those this phone already has a secret for, minus those a backup already
- * exists under. Only `create()` withholds a secret (Chrome does, Safari does not) — a `get()`
- * on the same passkey gives it — so this is the list one such ceremony is offered for.
- */
+// Passkeys still lacking a PRF secret here or a backup. `create()` may withhold the secret
+// (Chrome does); a `get()` on the same passkey gives it.
 export function passkeysToFetch(held: string[], local: string[], wrapped: string[]): string[] {
   const have = new Set([...local, ...wrapped]);
   return held.filter((id) => !have.has(id));
@@ -250,7 +228,7 @@ export function withMemberKey(kr: Keyring, privateKey: JsonWebKey): Keyring {
   return { ...kr, mk: privateKey };
 }
 
-/** The public half of the keyring's member key, as `member.hello` announces it; null without one. */
+// As `member.hello` announces it.
 export function memberPublicKey(kr: Keyring): JsonWebKey | null {
   if (!kr.mk) return null;
   const { d: _d, ...pub } = kr.mk;

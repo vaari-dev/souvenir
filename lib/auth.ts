@@ -1,19 +1,12 @@
-// Sign-in and cookie sessions, implemented directly on node:crypto — no auth
-// library. Two ways in: passkeys (challenges minted at the bottom of this
-// file, verified by lib/webauthn.ts) and Google, which passkeys are on their
-// way to replacing.
+// Sign-in and cookie sessions on node:crypto, no auth library. Passkeys (challenges minted
+// below, verified by lib/webauthn.ts) and Google.
 //
-// Flow: OAuth 2.0 authorization code + PKCE (S256), with `state` for CSRF and
-// `nonce` bound into the ID token. The code is exchanged server-to-server over
-// TLS with Google's token endpoint, so per OIDC Core §3.1.3.7 the TLS server
-// identity stands in for verifying the ID token's signature — which is what
-// lets this drop the JWKS/RS256 machinery. Every claim that actually gates
-// access is still checked in verifyIdToken().
+// Google: OAuth 2.0 code + PKCE (S256), `state` for CSRF, `nonce` bound into the ID token. The
+// code is exchanged server-to-server over TLS, so per OIDC Core §3.1.3.7 the TLS identity stands
+// in for the ID token's signature; every gating claim is still checked in verifyIdToken().
 //
-// Sessions are a compact HMAC-SHA256-signed token in an httpOnly cookie:
-// `base64url(json).base64url(hmac)`. Nothing secret lives inside it — only a
-// member id and an expiry — so signing is enough; encryption would add
-// nothing here.
+// Sessions are `base64url(json).base64url(hmac)` in an httpOnly cookie. Only a member id and an
+// expiry live inside, so signing suffices.
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
@@ -25,23 +18,20 @@ const AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_ISSUERS = new Set(["https://accounts.google.com", "accounts.google.com"]);
 
-/** Must match the authorised redirect URI registered in the Google console. */
+// Must match the redirect URI registered with Google.
 const CALLBACK_PATH = "/api/auth/callback/google";
 
 const SESSION_COOKIE = "souvenir_session";
 const HANDSHAKE_COOKIE = "souvenir_oauth";
-const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
+const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30;
 const HANDSHAKE_MAX_AGE_S = 60 * 10; // long enough to pick an account, no longer
 
-/** True once the deployment itself is on TLS; false for http://localhost dev. */
 const secureCookies = env.AUTH_URL.startsWith("https://");
 
 const cookieDefaults = {
   httpOnly: true,
   secure: secureCookies,
-  // "lax", not "strict": the browser arrives back from Google via a top-level
-  // GET redirect, and "strict" would withhold the cookie and break every
-  // callback.
+  // "lax": the return from Google is a top-level GET, which "strict" would strip of cookies.
   sameSite: "lax",
   path: "/",
 } as const;
@@ -65,7 +55,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-/** Tamper-evident (not secret) cookie value carrying its own expiry. */
+// Tamper-evident, not secret.
 function seal(claims: Record<string, unknown>, maxAgeSeconds: number): string {
   const body = Buffer.from(
     JSON.stringify({ ...claims, exp: nowSeconds() + maxAgeSeconds }),
@@ -73,7 +63,6 @@ function seal(claims: Record<string, unknown>, maxAgeSeconds: number): string {
   return `${body}.${hmac(body)}`;
 }
 
-/** Set a signed cookie carrying `claims` for `maxAgeSeconds`. */
 async function setSigned(
   name: string,
   claims: Record<string, unknown>,
@@ -85,7 +74,7 @@ async function setSigned(
   });
 }
 
-/** Read a signed cookie's claims and delete it: single use, whatever the caller makes of it. */
+/** Single use: deleted whatever the caller makes of it. */
 async function takeSigned(name: string): Promise<Record<string, unknown> | null> {
   const jar = await cookies();
   const claims = unseal(jar.get(name)?.value);
@@ -114,14 +103,13 @@ function unseal(token: string | undefined): Record<string, unknown> | null {
 
 export type Session = { memberId: string };
 
-/** The signed-in member id, or null. Safe to call anywhere a request exists. */
 export async function getSession(): Promise<Session | null> {
   const claims = unseal((await cookies()).get(SESSION_COOKIE)?.value);
   const memberId = claims?.memberId;
   return typeof memberId === "string" ? { memberId } : null;
 }
 
-/** Only callable from a server action or route handler (it writes a cookie). */
+// Writes a cookie: server actions and route handlers only.
 export async function createSession(memberId: string): Promise<void> {
   await setSigned(SESSION_COOKIE, { memberId }, SESSION_MAX_AGE_S);
 }
@@ -132,9 +120,8 @@ export async function destroySession(): Promise<void> {
 
 // --- consent --------------------------------------------------------------------
 //
-// Google sign-in creates the member in the callback, where no form is. The
-// "I'm 18+ and agree" tick from the sign-in page rides over in a short signed
-// cookie, so the member row carries the moment they agreed.
+// Google creates the member in the callback, where no form is, so the "18+ and agree" tick
+// rides over in a short signed cookie.
 
 const CONSENT_COOKIE = "souvenir_consent";
 
@@ -146,7 +133,6 @@ export async function noteSignInIntent(intent: { agreed: boolean; next: string }
   );
 }
 
-/** Whether the sign-in that just completed was started with the box ticked, and where to go. */
 export async function takeSignInIntent(): Promise<{ agreed: boolean; next: string }> {
   const claims = await takeSigned(CONSENT_COOKIE);
   return {
@@ -155,7 +141,7 @@ export async function takeSignInIntent(): Promise<{ agreed: boolean; next: strin
   };
 }
 
-/** A path on this site, or home: never an open redirect. */
+// Never an open redirect.
 export function safeNext(next: string | null | undefined): string {
   if (!next?.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
   return next;
@@ -169,11 +155,7 @@ function redirectUri(): string {
   return `${env.AUTH_URL}${CALLBACK_PATH}`;
 }
 
-/**
- * Begin the authorization-code flow: mint state/nonce/PKCE verifier, stash
- * them in a short-lived signed cookie, and return the Google URL to send the
- * browser to.
- */
+/** Stashes state/nonce/verifier in a short-lived signed cookie; returns the Google URL. */
 export async function startGoogleSignIn(): Promise<string> {
   if (!env.AUTH_GOOGLE_ID) throw new Error("Google sign-in is not configured");
 
@@ -196,13 +178,9 @@ export async function startGoogleSignIn(): Promise<string> {
   return url.toString();
 }
 
-/**
- * Complete the flow. Returns the verified Google profile, or null if any part
- * of the callback fails to check out — the caller sends the member back to
- * /signin rather than reporting which step failed.
- */
+/** Null on any failure; the caller never reports which step failed. */
 export async function completeGoogleSignIn(params: URLSearchParams): Promise<GoogleProfile | null> {
-  const handshake = await takeSigned(HANDSHAKE_COOKIE); // single use, whatever happens below
+  const handshake = await takeSigned(HANDSHAKE_COOKIE);
 
   const clientId = env.AUTH_GOOGLE_ID;
   const clientSecret = env.AUTH_GOOGLE_SECRET;
@@ -259,12 +237,7 @@ export async function completeGoogleSignIn(params: URLSearchParams): Promise<Goo
   return verifyIdToken(tokens.id_token, String(handshake.nonce ?? ""));
 }
 
-/**
- * Read and check the ID token's claims. The signature is deliberately not
- * verified — see the file header: the token arrived on our own authenticated
- * TLS connection to Google's token endpoint, so there is no untrusted hop for
- * a signature to protect against.
- */
+// Signature deliberately unchecked: see the file header.
 function verifyIdToken(idToken: string, nonce: string): GoogleProfile | null {
   const payload = idToken.split(".")[1];
   if (!payload) return null;
@@ -286,8 +259,7 @@ function verifyIdToken(idToken: string, nonce: string): GoogleProfile | null {
     logger.warn("id token nonce mismatch");
     return null;
   }
-  // Without this, anyone able to create an unverified Google account on an
-  // invited member's address would pass the invite allowlist.
+  // Else an unverified Google account on an invited address would pass the allowlist.
   if (claims.email_verified !== true) {
     logger.warn("id token email is not verified");
     return null;
@@ -302,15 +274,9 @@ function verifyIdToken(idToken: string, nonce: string): GoogleProfile | null {
 
 // --- passkeys -----------------------------------------------------------------
 //
-// The verification itself is in lib/webauthn.ts, which is pure. What lives here
-// is the part that needs a request: minting the challenge and remembering it
-// between the two round trips. It rides in the same kind of short-lived signed
-// cookie as the OAuth handshake — a challenge is not a secret, it just has to
-// come back unaltered and be usable exactly once.
+// The challenge rides in a short-lived signed cookie: not secret, but it must return unaltered
+// and be usable once.
 
-// Which relying party this deployment is, and whether it can do passkeys at
-// all. The rule is pure URL logic and lives in lib/webauthn.ts with its tests;
-// what belongs here is reading env and saying so at startup.
 const rp = relyingPartyFrom(env.AUTH_URL);
 
 export const RP_ID = rp.rpId;
@@ -325,25 +291,16 @@ if (!passkeysConfigured) {
 }
 
 const PASSKEY_COOKIE = "souvenir_passkey";
-const PASSKEY_MAX_AGE_S = 60 * 5; // long enough for a fingerprint prompt
+const PASSKEY_MAX_AGE_S = 60 * 5;
 
 /**
- * Which ceremony a challenge was minted for; they never cross. Keeping these
- * apart is what stops a passkey made for a fresh invite from being attached to
- * someone's existing account, and — the one that would actually cost
- * something — stops a "recover" ceremony from being finished as a "join", or a
- * plain "register" from being finished as a recovery of somebody else's seat.
- * A "signup" is a join with no link: an account from nothing, for whoever is
- * about to open the first trip.
+ * Which ceremony a challenge was minted for; they never cross, so a "recover" cannot be
+ * finished as a "join" nor a "register" as a recovery of somebody else's seat. A "signup" is a
+ * join with no link.
  */
 export type PasskeyPurpose = "register" | "login" | "join" | "recover" | "signup";
 
-/**
- * What a link-borne ceremony remembers between its two steps: the member it is
- * for — about to be created for a join, already at the table for a recovery —
- * and the code that authorised it. Both are re-checked against the database
- * before anything is written, so this is binding, not trust.
- */
+/** Remembered between a link ceremony's two steps; both are re-checked against the database. */
 export interface LinkClaims {
   memberId: string;
   code: string;
@@ -363,7 +320,6 @@ export async function startPasskeyChallenge(
   return challenge;
 }
 
-/** Read the pending challenge and burn it, whatever the caller then makes of it. */
 export async function takePasskeyChallenge(
   purpose: PasskeyPurpose,
 ): Promise<PasskeyChallenge | null> {

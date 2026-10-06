@@ -89,9 +89,7 @@ describe("saying a saved phrase again", () => {
   });
 
   it("refuses the server a side once the deploy has moved on", () => {
-    // Saved in Thailand, replayed after the group flew home: the device may
-    // still have a Thai voice, but the voice service would read it as whatever
-    // this deploy now calls "them".
+    // The voice service would read a stale line as whatever "them" now is.
     const india = resolvePair("en", "IN");
     expect(voiceFor(phrase(), india)).toEqual({ tag: "th-TH", side: null });
   });

@@ -19,7 +19,6 @@ export function NewMarketForm({
   tripId: string;
   polishAvailable: boolean;
   lingo?: string;
-  /** A starter draft, when one was tapped. */
   initial?: { question: string; criteria: string };
 }) {
   const t = lingoOf(lingo);

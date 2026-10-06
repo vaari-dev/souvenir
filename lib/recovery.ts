@@ -1,40 +1,28 @@
-// Recovery links: how a member gets back to their own seat after losing every
-// passkey they held.
+// Recovery links: how a member gets back to their own seat after losing every passkey.
 //
-// A recovery link and an invite link are the same primitive (lib/links.ts)
-// pointed at opposite ends of a member's life, and what they cost when one
-// goes astray is why this is its own module and its own table. A stray invite
-// makes a stranger a *new* member: no history, nothing staked, plain to see in
-// the list. A stray recovery link makes them an *existing* one — that member's
-// net, their bills, their word in the comments, and their vote on what a
-// prediction resolved to.
+// Same primitive as an invite (lib/links.ts), but a stray invite makes a stranger a *new* member,
+// plain to see in the list, while a stray recovery link makes them an *existing* one: that
+// member's net, bills, comments, and say in resolutions.
 //
-// Nothing in code can make that safe, because minting one is an organiser
-// vouching for somebody out of band; the check that matters is a phone call.
-// So everything here is about narrowing the window and removing the quiet:
-// half an hour, one use, one live link per member at a time, revocable by the
-// member it names as well as by any organiser — and every one of them
-// announced on the members page, before it is used and after.
+// Code cannot make that safe; an organiser vouching out of band does. So this module narrows the
+// window and removes the quiet: half an hour, one use, one live link per member, revocable by the
+// member it names and by any organiser, and announced on the members page before use and after.
 
 import { DAY_MS, linkState, MINUTE_MS } from "./links.ts";
 
-/** Long enough to talk someone through it on a call, short enough to be an event. */
+// Long enough to talk someone through on a call, short enough to be an event.
 export const RECOVERY_TTL_MS = 30 * MINUTE_MS;
 
-/** How long a spent link keeps being reported to the table after the fact. */
+// How long a spent link keeps being reported to the table.
 export const RECOVERY_NOTICE_MS = 7 * DAY_MS;
 
-/** The link an organiser passes on. `baseUrl` is AUTH_URL, already trailing-slash free. */
+// `baseUrl` is AUTH_URL, already trailing-slash free.
 export function recoveryUrl(baseUrl: string, code: string): string {
   return `${baseUrl}/recover/${code}`;
 }
 
-/**
- * What the members page tells the table: links that could still be walked
- * through, and ones somebody walked through recently. An expired unused row is
- * neither — nobody came, so there is nothing to report and no reason to keep
- * naming whoever it was minted for.
- */
+// Live links, and ones used recently. An expired unused row is neither: nobody came, so there is
+// nothing to report.
 export function visibleRecoveries<T extends { expiresAt: Date; usedAt: Date | null }>(
   rows: readonly T[],
   now: Date,

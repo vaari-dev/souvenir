@@ -6,7 +6,6 @@ import { CopyLink } from "@/components/copy-link";
 import { useMintInvite } from "./invite-links";
 import { useAct } from "./use-act";
 
-/** Mint a personal link rather than name an address. */
 export function InviteForm() {
   const router = useRouter();
   const mintInvite = useMintInvite();

@@ -1,11 +1,8 @@
 // Compiles lingo.yaml into lib/lingo.data.ts.
 //
-// The dictionary has to reach client components (the bet panel, the resolve
-// panel, the draft form all render flavored strings), so it cannot be read
-// from disk at runtime — it has to be part of the bundle. YAML stays the
-// source of truth and this script is the bridge: `pnpm dev` and `pnpm build`
-// both run it, and the generated file is committed so a fresh checkout, CI,
-// and the Docker build all typecheck before anything regenerates.
+// Client components render flavored strings, so the dictionary must be in the bundle, not read
+// from disk. The generated file is committed so a fresh checkout, CI and Docker typecheck
+// before anything regenerates.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -39,9 +36,8 @@ for (const [key, value] of Object.entries(lingos)) {
   }
 }
 
-// English is the reference spelling: every other lingo must define exactly the
-// same fields, so a typo or a half-finished dialect fails here rather than
-// rendering "undefined" to whoever picked it.
+// Every other lingo must define exactly english's fields, so a typo fails here rather than
+// rendering "undefined".
 const reference = Object.keys(lingos.english as Record<string, string>);
 for (const key of keys) {
   if (key === "english") continue;

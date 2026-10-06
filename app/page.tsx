@@ -6,7 +6,7 @@ import { googleConfigured, passkeysConfigured } from "@/lib/auth";
 import { routes } from "@/lib/routes";
 import { currentMember } from "@/lib/session";
 
-// The front door, for somebody who has never seen the app. Members never see it.
+// The front door for newcomers; members never see it.
 export default async function Landing() {
   const me = await currentMember();
   if (me) redirect(routes.trips);
