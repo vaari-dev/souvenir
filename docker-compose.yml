@@ -5,8 +5,7 @@
 #   Prod:  export APP_IMAGE=...   (GHCR tag; CI does this)
 #          docker compose pull app && docker compose up -d --no-build app
 #
-# All knobs come from .env (see .env.example): POSTGRES_PASSWORD, DB_PORT,
-# APP_PORT, APP_BIND, and the app's own settings.
+# Knobs come from .env (see .env.example).
 
 services:
   db:
@@ -18,7 +17,7 @@ services:
       POSTGRES_DB: souvenir
     volumes:
       - pgdata:/var/lib/postgresql
-    # Loopback only — never expose Postgres to the network.
+    # Loopback only; never expose Postgres.
     ports:
       - "127.0.0.1:${DB_PORT:-5566}:5432"
     healthcheck:
@@ -27,15 +26,13 @@ services:
       timeout: 3s
       retries: 20
 
-  # Runs pending migrations and exits. The app only starts after this succeeds.
-  # Same image as the app — the standalone build bundles the migrate script.
+  # Runs pending migrations and exits; the app starts only after it succeeds.
   migrate:
     image: ${APP_IMAGE:-souvenir:local}
     build:
       context: .
     command: ["node", "scripts/migrate.ts"]
-    # lib/env.ts validates the full environment (AUTH_SECRET included) on
-    # import, so migrate needs the real .env just like the app.
+    # lib/env.ts validates the whole environment on import, so migrate needs the real .env.
     env_file:
       - .env
     environment:
@@ -50,12 +47,10 @@ services:
     build:
       context: .
     restart: unless-stopped
-    # Default loopback bind assumes a reverse proxy terminates TLS in prod;
-    # set APP_BIND=0.0.0.0 to expose directly.
+    # Loopback assumes a reverse proxy terminates TLS; APP_BIND=0.0.0.0 exposes directly.
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
-    # Required: the server refuses to start without AUTH_SECRET, so fail
-    # fast here with a clear error if .env is missing.
+    # Required: AUTH_SECRET has no default, so a missing .env fails fast.
     env_file:
       - .env
     environment:
@@ -65,11 +60,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    # Also on the box's proxy network, so the reverse proxy reaches the app
-    # without the app ever binding a public port itself. The network is shared,
-    # and every compose project calls its service `app` — so the name there is
-    # ours alone: the proxy targets souvenir:3000. (The generic `app` alias
-    # still exists on that network; nothing should use it.)
+    # The proxy reaches the app over this shared network without a public port. Every project
+    # calls its service `app`, so the proxy targets the unique alias: souvenir:3000.
     networks:
       default: null
       edge:
@@ -80,8 +72,7 @@ volumes:
   pgdata:
 
 networks:
-  # Pre-existing on the box (the proxy lives there); DOCKER_NETWORK names it.
-  # For a full local stack, `docker network create edge` once.
+  # Must already exist (the proxy lives there); locally, `docker network create edge` once.
   edge:
     external: true
     name: ${DOCKER_NETWORK:-edge}

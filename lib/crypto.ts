@@ -1,18 +1,13 @@
-// The sealing primitives for private trips: what turns a member's words into
-// something the server stores but cannot read. See docs/private-trips.md.
+// Sealing primitives for private trips (docs/private-trips.md). WebCrypto only, so it runs
+// unchanged on a phone and under vitest. Shapes:
 //
-// WebCrypto only — `globalThis.crypto.subtle` is the same object in every
-// target browser and in Node, so this file runs unchanged on a phone and under
-// vitest, and there is no library to audit. The shapes that come out of it:
-//
-//   envelope     v1.<epoch>.<iv>.<ct>          one event on a trip, under the trip key
+//   envelope     v1.<epoch>.<iv>.<ct>          one event, under the trip key
 //   blob         v1.<iv>.<ct>                  bytes under any key: a keyring, a wrap
 //   link wrap    a blob under a key derived from a link's secret
 //   member wrap  v1.<ephemeral pub>.<iv>.<ct>  bytes to a member's long-term key
 //
-// Everything is AES-256-GCM with a fresh 96-bit IV and additional data that
-// names what the ciphertext is *for*, so a row that has been moved or
-// relabelled fails to open instead of quietly reading as somebody else's.
+// AES-256-GCM, fresh 96-bit IV, additional data naming what the ciphertext is *for*, so a moved
+// or relabelled row fails to open.
 
 const ALG = "AES-GCM";
 const KEY_BITS = 256;
@@ -22,7 +17,6 @@ const VERSION = "v1";
 
 const subtle = globalThis.crypto.subtle;
 
-/** Anything a ciphertext can refuse to do: a tampered row, a wrong key, bad shape. */
 export class CryptoError extends Error {}
 
 // --- bytes --------------------------------------------------------------------
@@ -44,7 +38,7 @@ export function fromUtf8(bytes: Uint8Array): string {
   return decoder.decode(bytes);
 }
 
-/** URL-safe base64 without padding — fits in a fragment, a column, a QR. */
+// URL-safe base64, unpadded.
 export function toBase64Url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
@@ -77,7 +71,6 @@ function joined(...parts: string[]): string {
   return [VERSION, ...parts].join(".");
 }
 
-/** The parts after the version, or a CryptoError unless there are exactly `n` of them. */
 function split(text: string, n: number, what: string): string[] {
   const parts = text.split(".");
   if (parts.length !== n + 1 || parts[0] !== VERSION) throw new CryptoError(`not ${what}`);
@@ -86,10 +79,7 @@ function split(text: string, n: number, what: string): string[] {
 
 // --- keys ---------------------------------------------------------------------
 
-/**
- * A fresh AES-256-GCM key. Extractable by default: a trip key has to be put into a keyring and a
- * keyring into a wrap, and it only ever leaves under another key.
- */
+// Extractable by default: a trip key goes into a keyring, and leaves only under another key.
 export function newKey(extractable = true): Promise<CryptoKey> {
   return subtle.generateKey({ name: ALG, length: KEY_BITS }, extractable, ["encrypt", "decrypt"]);
 }
@@ -103,15 +93,11 @@ export function importKey(raw: Uint8Array, extractable = true): Promise<CryptoKe
   return subtle.importKey("raw", buf(raw), { name: ALG }, extractable, ["encrypt", "decrypt"]);
 }
 
-/** 256 random bits: a link secret, or the seed of anything else. */
 export function newSecret(): Uint8Array {
   return randomBytes(SECRET_BYTES);
 }
 
-/**
- * A wrap key from a secret and a purpose. The purpose is HKDF's `info`, which is what stops a
- * secret minted for one kind of link from opening what another kind carries.
- */
+// The purpose is HKDF's `info`: a secret minted for one kind of link cannot open another's.
 export async function deriveKey(secret: Uint8Array, purpose: string): Promise<CryptoKey> {
   if (secret.length !== SECRET_BYTES) throw new CryptoError("secret is not 256 bits");
   const ikm = await subtle.importKey("raw", buf(secret), "HKDF", false, ["deriveKey"]);
@@ -126,7 +112,6 @@ export async function deriveKey(secret: Uint8Array, purpose: string): Promise<Cr
 
 // --- blobs --------------------------------------------------------------------
 
-/** `[iv, ct]`, both base64url. */
 async function encrypt(key: CryptoKey, aad: string, plain: Uint8Array): Promise<string[]> {
   const iv = randomBytes(IV_BYTES);
   const ct = await subtle.encrypt(
@@ -153,7 +138,6 @@ async function decrypt(key: CryptoKey, aad: string, ivB: string, ctB: string) {
   }
 }
 
-/** Bytes under a key, bound to a purpose. `v1.<iv>.<ct>`. */
 export async function sealBlob(key: CryptoKey, purpose: string, plain: Uint8Array) {
   return joined(...(await encrypt(key, purpose, plain)));
 }
@@ -165,7 +149,6 @@ export async function openBlob(key: CryptoKey, purpose: string, blob: string) {
 
 // --- link wraps ---------------------------------------------------------------
 
-/** Which kind of link a wrap rode in on; the wrong kind will not open it. */
 export type LinkPurpose = "invite" | "rekey" | "preview";
 
 export async function wrapForLink(secret: Uint8Array, purpose: LinkPurpose, plain: Uint8Array) {
@@ -178,7 +161,7 @@ export async function unwrapFromLink(secret: Uint8Array, purpose: LinkPurpose, b
 
 // --- envelopes ----------------------------------------------------------------
 
-/** What an envelope is bound to: the row's own plaintext columns. */
+// Bound as AAD: the row's own plaintext columns.
 export interface EnvelopeBinding {
   tripId: string;
   authorId: string;
@@ -189,7 +172,6 @@ function bindingAad({ tripId, authorId, epoch }: EnvelopeBinding): string {
   return `${tripId}|${authorId}|${epoch}`;
 }
 
-/** The parts of an envelope the server can read: its shape, and which key epoch it needs. */
 export interface EnvelopeHeader {
   version: string;
   epoch: number;
@@ -211,16 +193,12 @@ export function parseEnvelope(envelope: string): EnvelopeHeader {
   return { version: VERSION, epoch: splitEnvelope(envelope)[0] };
 }
 
-/** One event, under the trip key for `binding.epoch`. `v1.<epoch>.<iv>.<ct>`. */
 export async function seal(key: CryptoKey, binding: EnvelopeBinding, plain: Uint8Array) {
   checkEpoch(binding.epoch);
   return joined(String(binding.epoch), ...(await encrypt(key, bindingAad(binding), plain)));
 }
 
-/**
- * Open an envelope with the key for the epoch it names. If the row's trip, author or epoch is
- * not what the writer sealed against, the row has been moved and this throws.
- */
+// Throws if the row's trip, author or epoch differs from what the writer sealed against.
 export async function open(key: CryptoKey, binding: EnvelopeBinding, envelope: string) {
   const [epoch, iv, ct] = splitEnvelope(envelope);
   if (epoch !== binding.epoch) throw new CryptoError("epoch mismatch");
@@ -228,10 +206,8 @@ export async function open(key: CryptoKey, binding: EnvelopeBinding, envelope: s
 }
 
 // --- member keys ------------------------------------------------------------------
-// A member's long-term key (docs/private-trips.md §2, "MK"): P-256, the public
-// half announced in the log, the private half in the keyring. A rotated trip
-// key is wrapped to it with an ephemeral ECDH agreement, so nothing the server
-// stores — the announcement or the wrap — opens anything on its own.
+// A member's long-term P-256 key (docs/private-trips.md §2, "MK"): public half announced in the
+// log, private half in the keyring. A rotated trip key is wrapped to it via ephemeral ECDH.
 
 const ECDH = { name: "ECDH", namedCurve: "P-256" } as const;
 const MEMBER_WRAP = "member-key";
@@ -263,7 +239,6 @@ async function agreedKey(priv: CryptoKey, pub: CryptoKey): Promise<CryptoKey> {
   );
 }
 
-/** Bytes to a member: `v1.<ephemeral public jwk b64url>.<iv>.<ct>`. */
 export async function wrapToMember(theirPublic: JsonWebKey, plain: Uint8Array): Promise<string> {
   let pub: CryptoKey;
   try {

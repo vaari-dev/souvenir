@@ -22,10 +22,8 @@ const toBase64url = (bytes: ArrayBuffer) => toBase64Url(new Uint8Array(bytes));
 const fromBase64url = (value: string): BufferSource => fromBase64Url(value);
 
 /**
- * A passkey is bound to the rp id the server derives from AUTH_URL, and the
- * browser's refusal on a mismatch is a bare SecurityError — so name both
- * addresses here. Reaching the app on 127.0.0.1 when AUTH_URL says localhost
- * is the easiest way to hit it.
+ * The rp id comes from AUTH_URL and the browser's refusal on a mismatch is a bare SecurityError,
+ * so name both addresses (127.0.0.1 vs localhost is the usual cause).
  */
 function originMismatch(expected: string): string | null {
   if (window.location.origin === expected) return null;
@@ -87,12 +85,7 @@ export async function fetchPrf(rpId: string, credentialIds: string[]): Promise<b
 
 type Begun<O> = ActionResult & { options?: O };
 
-/**
- * Either ceremony, start to finish: ask the server for options, run the
- * authenticator, keep the PRF result. Adding a passkey, joining, recovering
- * and signing in differ only in which action begins it and which
- * `navigator.credentials` call it makes.
- */
+/** Either ceremony end to end: options from the server, the authenticator, keep the PRF result. */
 async function ceremony<O extends { origin: string }>(
   begin: () => Promise<Begun<O>>,
   perform: (
@@ -211,7 +204,6 @@ export async function getCredential(
   };
 }
 
-/** Add a passkey to the signed-in member. */
 async function enrolPasskey(): Promise<ActionResult> {
   const made = await createCredential(beginPasskeyRegistrationAction, "added");
   if ("error" in made) return { ok: false, error: made.error };
@@ -303,7 +295,6 @@ function KeyBackup({ passkey, rpId }: { passkey: PasskeySummary; rpId: string })
   );
 }
 
-/** Shown on your own member page: the keys that can sign in as you. */
 export function PasskeyManager({ passkeys, rpId }: { passkeys: PasskeySummary[]; rpId: string }) {
   const router = useRouter();
   const { pending, error, act } = useAct();

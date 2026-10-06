@@ -1,14 +1,10 @@
 "use client";
 
-// The boundary under the root layout: a page that threw shows this in its
-// place, header and footer intact. The phone keeps the reason in its own
-// console; the server gets a report (components/error-reporter) and the
-// member gets the digest, which is the word that finds it in the log.
+// The boundary under the root layout. The server gets a report (components/error-reporter);
+// the member gets the digest, which finds it in the log.
 //
-// One error is not a break and not worth a report: an action this bundle
-// knows by a name the running build no longer has, because a deploy went out
-// while the page sat open. Retrying that runs the same stale bundle at the
-// same missing name, so the button has to be a reload (see stale-build).
+// A stale build is not a break and not reported: a deploy renamed an action while the page sat
+// open. Retrying reruns the same stale bundle, so the button must reload (see stale-build).
 
 import Link from "next/link";
 import { unstable_isUnrecognizedActionError } from "next/navigation";
@@ -23,15 +19,13 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
-  // Read before the narrowing below: the predicate is a type guard, and past
-  // it TypeScript has no `error` left to take a digest off.
+  // Before the narrowing below: past the type guard `error` has no digest to read.
   const digest = error.digest;
   const stale = unstable_isUnrecognizedActionError(error);
 
   useEffect(() => {
     console.error(error);
-    // The server logged its own line for a stale build already, and a deploy
-    // can put this in front of every phone at once.
+    // The server already logged a stale build, and a deploy can hit every phone at once.
     if (!stale) sendReport("boundary", error);
   }, [error, stale]);
 

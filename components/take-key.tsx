@@ -34,7 +34,6 @@ function findSecret(code: string): Uint8Array | null {
 
 export const hasSecret = (code: string) => findSecret(code) !== null;
 
-/** A sign-in link on a key-carrying page: parks the fragment first, so it is there on return. */
 export function SignInKeepingSecret({
   code,
   href,

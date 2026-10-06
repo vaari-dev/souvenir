@@ -16,10 +16,8 @@ import {
   WebAuthnError,
 } from "./webauthn.ts";
 
-// A stand-in authenticator: it holds a keypair and produces exactly the bytes a
-// real one would, so these tests exercise the whole parse-and-verify path
-// without a browser. The CBOR here is written by hand (lib/cbor.ts only reads),
-// which keeps the encoder that builds fixtures independent of the decoder.
+// A stand-in authenticator producing the bytes a real one would. Its CBOR is hand-written
+// (lib/cbor.ts only reads) so the fixtures stay independent of the decoder.
 
 const RP_ID = "souvenir.example";
 const ORIGIN = "https://souvenir.example";

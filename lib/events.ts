@@ -1,14 +1,9 @@
-// What a member can do on a sealed trip, as the payload inside an envelope.
-// See docs/private-trips.md §2 and §4.7.
+// The payload inside an envelope (docs/private-trips.md §2, §4.7). Every phone replays these in
+// server order (lib/replay.ts), so the shapes are the contract between all of them: an unknown
+// type decodes to `unknown` and is skipped, so an old client survives a new feature.
 //
-// One row in `events` is one of these, encrypted. Every derivation replays
-// them in server order (lib/replay.ts), so the shapes below are the contract
-// between every phone on the trip, present and future: a reader that meets a
-// type it does not know gets `unknown` back and keeps going, so an old client
-// survives a new feature.
-//
-// Ids for markets, bills, phrases and comments are minted on the phone:
-// random, and claimed by the first event to use them.
+// Ids for markets, bills, phrases and comments are random, minted on the phone, and claimed by
+// the first event to use them.
 
 import { fromUtf8, utf8 } from "./crypto.ts";
 import type { Side } from "./engine.ts";
@@ -73,9 +68,9 @@ export interface BillRevision {
   description: string;
   currency: Currency;
   split: SplitMode;
-  /** Form input, not built entries: replay builds them with lib/split so every phone agrees. */
+  /** Form input; replay builds entries with lib/split so every phone agrees. */
   entries: BillEntryInput[];
-  /** ISO date the bill is dated, in the trip's day. */
+  /** ISO date, in the trip's day. */
   onDate: string;
   deleted?: boolean;
 }
@@ -92,7 +87,7 @@ export interface PhraseKeep {
   literal?: string;
   language: string;
   tag: string;
-  /** Who kept it, when an organiser re-seals a phrase kept before the trip was; otherwise the author. */
+  /** Honoured only from an organiser re-sealing a pre-sealing phrase; otherwise the author. */
   keeper?: string;
 }
 
@@ -101,17 +96,14 @@ export interface PhraseDrop {
   id: string;
 }
 
-/** A member announcing themselves on a trip, with the public key that reaches them (Phase 3). */
 export interface MemberHello {
   t: "member.hello";
   mkPub?: JsonWebKey;
 }
 
 /**
- * Who organises, as the log remembers it. `memberships.role` stays the
- * server's authority for what the server gates (invites, recoveries); this is
- * replay's, so that a reopen from last month is judged by who organised last
- * month, on every phone, forever. Phase 1 writes both from one action.
+ * `memberships.role` is the server's authority for what it gates (invites, recoveries); this is
+ * replay's, so a past reopen is judged by who organised then, on every phone.
  */
 export interface MemberRole {
   t: "member.role";
@@ -135,10 +127,9 @@ export type EventPayload =
 
 export type EventType = EventPayload["t"];
 
-/** What decode gives back for a type this build has never heard of. */
 export interface UnknownEvent {
   t: "unknown";
-  /** The type the writer used, so the members page can say a newer app is about. */
+  /** The writer's type, so the members page can say a newer app is about. */
   was: string;
 }
 
@@ -150,7 +141,7 @@ export function encodeEvent(payload: EventPayload): Uint8Array {
   return utf8(JSON.stringify(payload));
 }
 
-/** Parse and shape-check. Unknown types come back as `unknown`; malformed known types throw. */
+// Unknown types come back as `unknown`; malformed known types throw.
 export function decodeEvent(bytes: Uint8Array): EventPayload | UnknownEvent {
   let parsed: unknown;
   try {
@@ -174,10 +165,8 @@ export function parsePayload(value: unknown): EventPayload | UnknownEvent {
 }
 
 // --- shape checks -------------------------------------------------------------
-//
-// Deliberately about shape, not rules: a call for a million pies is well
-// formed here and refused by replay, where the cap lives. What is refused
-// here is what replay could not even reason about.
+// Shape, not rules: a call for a million pies is well formed here and refused by replay, where
+// the cap lives.
 
 type Check = (p: Record<string, unknown>) => boolean;
 
@@ -242,10 +231,8 @@ const checks: Record<EventType, Check> = {
   "member.role": (p) => nonEmpty(p.memberId) && (p.role === "organiser" || p.role === "member"),
 };
 
-/** Every type this build knows. */
 export const EVENT_TYPES = Object.keys(checks) as EventType[];
 
-/** A row after its envelope opened: what replay consumes. */
 export interface OpenEvent {
   id: number;
   at: Date;

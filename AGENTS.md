@@ -1,10 +1,10 @@
 # Souvenir — agent notes
 
-The app for the trip that actually happens: friend groups open a *trip*, join
-by link, and play a zero-sum play-money prediction game about the trip itself,
-with split bills and a two-way interpreter beside it. Next.js 16 App Router +
-server actions, Postgres via Drizzle, dependency-free passkeys + Google OAuth
-(`lib/auth.ts`). Multi-tenant: everything hangs off a `trips` row.
+Friend groups open a *trip*, join by link, and play a zero-sum play-money
+prediction game about it, with split bills and a two-way interpreter beside.
+Next.js 16 App Router + server actions, Postgres via Drizzle, dependency-free
+passkeys + Google OAuth (`lib/auth.ts`). Multi-tenant: everything hangs off a
+`trips` row.
 
 **Behavior is specified by the tests.** Every pure module has a `*.test.ts`
 beside it: `lib/engine` (settlement), `lib/stats` (outcomes/roll-ups),
@@ -55,15 +55,14 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
 
 - **A trip is sealed.** Its predictions, calls, verdicts, table talk,
   reactions are envelopes in `events` — sealed on the phone under
-  the trip's key (`lib/crypto`), ordered by the server, and never readable by
-  it. The server checks the seat, the epoch, the size and the shape
+  the trip's key (`lib/crypto`), ordered by the server, never readable by it. The server checks the seat, the epoch, the size and the shape
   (`appendEvent`), and nothing else — under the trip row's lock, which is
   what makes `events.seq` both the trip's order and its commit order, so a
   phone polling "after seq N" never misses a row. Every phone runs the rules
   over its own log before posting (`sealEvent` in `trip-store`), so a refusal
-  reaches the person tapping; the server cannot give one. The rules of the game — cap, one side,
-  creator resolves, organiser reopens, zero-sum — are `lib/replay.ts`, run on
-  every phone over the whole log (`components/trip-store.tsx`), and the pages
+  reaches the person tapping; the server cannot give one. The rules of the
+  game (cap, one side, creator resolves, organiser reopens, zero-sum) are
+  `lib/replay.ts`, run on every phone over the whole log (`components/trip-store.tsx`), and the pages
   are derived from that state by `lib/views.ts`. Never add a server-side
   check that needs plaintext: there is none. Bills (`bill.rev`) and the
   phrasebook (`phrase.keep`/`phrase.drop`) are events too; the trip's name
@@ -119,7 +118,9 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
   bypass with a POST. Pages under `/t/[tripId]` start with `requireTrip`,
   which redirects a member with no seat. A member can be on many trips; the
   leaderboard, the inbox cursor, the net, the cap are all per trip. Names are
-  distinct per trip (mentions), not across the world.
+  distinct per trip, not across the world: `@mentions` resolve against them
+  (`lib/mentions.ts`), joining with a clashing name is refused, and renaming
+  checks every trip the member is on.
 - **Stamps are never money, and never near money.** That is what keeps the game
   an "online social game" under India's PROGA 2025 and off the store
   questionnaires' gambling ratings: no purchase, no cash-out, no prize, and
@@ -169,12 +170,9 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
   before scale. Account deletion (`deleteAccount`) scrubs everything
   identifying in one transaction and leaves the ledger rows under "Departed
   member", because append-only means a payout cannot vanish.
-- **Private trips** (end-to-end encryption) were built to
-  `docs/private-trips.md` — read it before touching invites, recovery, the
-  log, keys, or `lib/data.ts`. Every phase has shipped: the sealed log, the
-  sealed name and phrasebook, member keys and rotation on leaving, the
-  passkey backup, and the attested build. The document records what
-  differed from the plan and why. Do not add a plaintext content column.
+- **Private trips** (end-to-end encryption) are specified in
+  `docs/private-trips.md`; read it before touching invites, recovery, the
+  log, keys, or `lib/data.ts`. Do not add a plaintext content column.
 - `lib/env.ts` is the only file reading `process.env` (zod-validated).
 - **Logs are JSON lines through `lib/logger`, and nothing else.** pino on
   stdout, one record per line, `level` as a word, the build's short sha on
@@ -246,9 +244,6 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
   is the failsafe under that (`minted_by` null = console), for when no
   organiser can sign in; it needs `DATABASE_URL`, which is where the trust
   already sat.
-- Names must be distinct per trip: `@mentions` resolve against them
-  (`lib/mentions.ts`). Joining a trip with a clashing name is refused;
-  renaming checks every trip the member is on.
 - Two ways in: passkeys (`lib/webauthn.ts`, pure and verified on `node:crypto`)
   and Google, which passkeys are replacing. Nothing identifying is stored for a
   passkey — a credential id, a public key, a counter; the aaguid and the
@@ -259,8 +254,6 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
 - Avatars are an upload or a generated monogram — initials on a gradient seeded
   by member id, never the name, so a rename keeps the same face. Nothing reads
   `members.image` any more.
-- Vocabulary: UI says *prediction/call/resolve/pool/stamp*; code says
-  `market/stake/settle*/amountC`. Don't half-rename either side.
 - `/talk` is the one page pointed *outward*, at somebody who is not in the
   group: tap a side, speak, and the phone says it in the other language.
   The conversation is not stored — no turn, no clip, no transcript. It is

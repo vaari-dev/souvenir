@@ -9,7 +9,6 @@ const config: ReplayConfig = {
   currencies: ["inr", "thb"],
 };
 
-/** Build a log: each entry is [author, payload]; ids and times follow the order. */
 function log(entries: Array<[string, EventPayload | { t: string }]>): OpenEvent[] {
   return entries.map(([authorId, payload], i) => ({
     id: i + 1,

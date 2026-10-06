@@ -8,14 +8,12 @@ import { type CommentView, commentError, type Person } from "@/lib/views";
 import { Avatar } from "./avatar";
 import { useAct } from "./use-act";
 
-/** The "@pre" the caret is completing, if it's in one. */
 function mentionPrefix(text: string, caret: number): { start: number; query: string } | null {
   const match = /(?:^|[^\p{L}\p{N}])(@([\p{L}\p{N}]*))$/u.exec(text.slice(0, caret));
   if (!match) return null;
   return { start: caret - match[1].length, query: match[2] };
 }
 
-/** One thread plus its composer, under a prediction or inside a bill. Typing @ suggests members. */
 export function CommentsSection({
   comments,
   members,
@@ -27,7 +25,6 @@ export function CommentsSection({
   members: Person[];
   meId: string;
   lingo: string;
-  /** Post the trimmed body, with the member ids it @mentions. */
   onPost: (body: string, mentions: string[]) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const t = lingoOf(lingo);
@@ -37,7 +34,6 @@ export function CommentsSection({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [pendingCaret, setPendingCaret] = useState<number | null>(null);
 
-  // Restore focus and caret after a suggestion rewrites the body.
   useEffect(() => {
     if (pendingCaret === null) return;
     const el = textareaRef.current;

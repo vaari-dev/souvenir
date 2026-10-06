@@ -1,12 +1,7 @@
-// What a phone may tell the server when it breaks, and what a log line may
-// say about a request. Pure; the shapes are the tests.
-//
-// A trip is sealed, so a crash report is the one channel on which words from
-// a phone reach the server log, and it is kept narrow on purpose: an error's
-// name, message and stack (capped), Next's digest, and the path with its
-// secret segment masked — never a query, never a fragment. Rule errors
-// (`lib/replay`, `lib/split`) name the rule and never quote content, so a
-// message from one carries nothing the server could not already see.
+// A crash report is the one channel on which words from a phone reach the server log, so it
+// is narrow: name, message and stack (capped), digest, and the path with its secret segment
+// masked, never a query or fragment. Rule errors (`lib/replay`, `lib/split`) never quote
+// content.
 
 import { routes } from "./routes.ts";
 
@@ -14,23 +9,21 @@ export const REPORT_KINDS = ["boundary", "global", "window", "rejection"] as con
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
 export interface ClientErrorReport {
-  /** Which net caught it: a page boundary, the root one, a window error, an unhandled promise. */
   kind: ReportKind;
   name: string;
   message: string;
   stack: string | null;
-  /** Next's hash of a server-thrown error, the same one its own log line carries. */
+  /** Next's hash of a server-thrown error, matching its own log line. */
   digest: string | null;
-  /** The pathname, masked. */
   path: string;
 }
 
 const LIMITS = { name: 80, message: 500, stack: 4000, digest: 64, path: 200 } as const;
 
-/** The routes whose one segment is a secret — the code in a link — read off `routes` so they cannot drift. */
+// Read off `routes` so they cannot drift.
 const SECRET_SEGMENTS = [routes.join, routes.recover, routes.rekey].map((r) => r("").split("/")[1]);
 
-/** The pathname alone, with a link's code replaced by `[code]`. */
+/** The pathname alone, a link's code replaced by `[code]`. */
 export function maskPath(path: string): string {
   const pathname = path.split(/[?#]/, 1)[0] ?? "";
   const [, head, ...rest] = pathname.split("/");
@@ -41,7 +34,7 @@ export function maskPath(path: string): string {
 const clip = (value: unknown, max: number): string | null =>
   typeof value === "string" && value.length > 0 ? value.slice(0, max) : null;
 
-/** A report as it came off the wire, capped and masked — or null when it is not one. */
+/** Capped and masked, or null when not a report. */
 export function tidyReport(raw: unknown): ClientErrorReport | null {
   if (typeof raw !== "object" || raw === null) return null;
   const r = raw as Record<string, unknown>;
@@ -58,7 +51,6 @@ export function tidyReport(raw: unknown): ClientErrorReport | null {
   };
 }
 
-/** The four things worth sending about a thrown value, whatever it was. */
 export function describeError(
   err: unknown,
 ): Pick<ClientErrorReport, "name" | "message" | "stack" | "digest"> {
@@ -80,11 +72,9 @@ export function describeError(
 }
 
 /**
- * Not worth a line: a cross-origin script's error the browser has already
- * blanked, a fetch the page itself cancelled, the observer warning browsers
- * raise on a busy layout, and an action called from a bundle a deploy has
- * replaced — the server writes its own line for that one, and a deploy can
- * put it in front of every phone at once (components/stale-build).
+ * Blanked cross-origin errors, cancelled fetches, ResizeObserver warnings, and actions from a
+ * replaced bundle (the server logs that one; a deploy hits every phone at once —
+ * components/stale-build).
  */
 export function isNoise({ name, message }: { name: string; message: string }): boolean {
   return (
@@ -95,12 +85,7 @@ export function isNoise({ name, message }: { name: string; message: string }): b
   );
 }
 
-/**
- * How many reports a process takes per window: a crash loop on one phone, or
- * a thousand phones on one bad deploy, must not turn the log into the outage.
- * The function says whether this one is taken; past the limit they are
- * dropped, not queued.
- */
+/** Per-window limit so a crash loop or a bad deploy cannot flood the log. Excess is dropped. */
 export function reportBudget(limit: number, windowMs: number): (now: number) => boolean {
   let windowStart = 0;
   let taken = 0;

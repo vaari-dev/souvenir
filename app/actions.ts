@@ -123,13 +123,9 @@ function failure(err: unknown, memberId?: string): ActionResult {
   return { ok: false, error: "Something went wrong. Try again." };
 }
 
-/** Revalidate every page — for what the header or footer shows. */
 const LAYOUT = "layout";
 
-/**
- * Every mutation: act as the signed-in member, turn a broken rule into a message the panel can
- * show, revalidate what changed. Whatever `run` returns rides along on success.
- */
+/** Every mutation: act as the signed-in member, turn a broken rule into a message, revalidate. */
 function mutate(run: (memberId: string) => Promise<void>, paths?: string[]): Promise<ActionResult>;
 function mutate<T extends object>(
   run: (memberId: string) => Promise<T>,
@@ -159,10 +155,8 @@ async function mutate<T extends object>(
 const takeReport = reportBudget(120, 60_000);
 
 /**
- * A phone that broke — an error boundary, an uncaught error, a promise nobody
- * awaited — says so here and nowhere else (components/error-reporter). Signed
- * out is fine: the root boundary can fire before anyone is. Nothing comes
- * back, so nothing can be learned by sending one.
+ * Where a crashed phone reports (components/error-reporter). Signed out is fine: the root
+ * boundary can fire before anyone is. Nothing comes back, so nothing can be probed.
  */
 export async function reportClientErrorAction(raw: unknown): Promise<void> {
   const report = tidyReport(raw);
@@ -231,8 +225,8 @@ export async function polishAction(
 }
 
 // ---------- the sealed log ----------
-// Two actions carry the whole game: append one envelope, fetch what landed since. What an
-// envelope means is decided on the phone (lib/replay.ts); the server checks seat and epoch.
+// Append an envelope, fetch what landed since. Meaning is decided on the phone (lib/replay.ts);
+// the server checks seat and epoch.
 
 export async function appendEventAction(
   tripId: string,
@@ -271,7 +265,6 @@ export async function mintRekeyAction(
   );
 }
 
-/** Spend a rekey link as the member it names, and get its wrap back to open. */
 export async function redeemRekeyAction(
   code: string,
 ): Promise<ActionResult & { tripId?: string; key?: KeyHandover }> {
@@ -317,7 +310,6 @@ export async function unpublishCardAction(marketId: string): Promise<ActionResul
 
 // ---------- talk ----------
 
-/** The pair this trip interprets between, checked against the caller's seat. */
 async function pairOf(memberId: string, tripId: string) {
   const ctx = await tripFor(memberId, tripId);
   return ctx ? pairFor(ctx.trip) : null;
@@ -339,7 +331,6 @@ export async function interpretAction(
   if (!worthSaying(utterance)) {
     return { ok: false, error: "Nothing came through. Say that again?" };
   }
-  // The languages are the trip's configuration; the browser says only which way round.
   const target = to === "them" ? pair.them : pair.us;
   const source = to === "them" ? pair.us : pair.them;
   try {
@@ -349,7 +340,6 @@ export async function interpretAction(
       from: source.language,
       place: pair.place,
       romanise: target.script !== "Latin",
-      // The polite ending is the destination's, keyed by who is speaking.
       politeness: to === "them" ? pair.them.particles?.[speaking]?.prompt : undefined,
     });
     return { ok: true, said };
@@ -369,7 +359,6 @@ export async function leaveTripAction(tripId: string): Promise<ActionResult> {
   return mutate((memberId) => leaveTrip(memberId, tripId), [routes.trips]);
 }
 
-/** The organiser's phone has wrapped the next key to every seat; the server turns the epoch. */
 export async function bumpEpochAction(
   tripId: string,
   input: { epoch: number; nameEnc: string; grants: KeyGrantInput[] },
@@ -448,7 +437,7 @@ export async function clearAvatarAction(): Promise<ActionResult> {
 
 // ---------- invites ----------
 
-/** Both minting actions hand back the link without its fragment: the secret never comes here. */
+/** The link comes back without its fragment: the secret never reaches the server. */
 export async function mintInviteAction(
   tripId: string,
   label: string,
@@ -471,7 +460,6 @@ export async function revokeInviteAction(code: string): Promise<ActionResult> {
   );
 }
 
-/** A signed-in member opening somebody's link: seat them, spend it, hand back the key wrap. */
 export async function joinAsMemberAction(
   code: string,
 ): Promise<ActionResult & { tripId?: string; key?: KeyHandover | null }> {
@@ -482,9 +470,8 @@ export async function joinAsMemberAction(
 }
 
 // ---------- passkeys ----------
-// Two round trips: the browser asks for a challenge, talks to the authenticator, posts the result
-// back. The challenge lives in a signed cookie between the two (lib/auth.ts); the checking is
-// lib/webauthn.ts. Every field a finish action receives is a string of unknown provenance.
+// Two round trips; the challenge lives in a signed cookie between them (lib/auth.ts), the
+// checking is lib/webauthn.ts. Every field a finish action receives is untrusted.
 
 const RP = { id: RP_ID, name: "Souvenir" } as const;
 const RP_CHECK = { rpId: RP_ID, origin: RP_ORIGIN } as const;
@@ -514,7 +501,6 @@ const assertionSchema = z.object({
   signature: z.string().min(1).max(4096),
 });
 
-/** Step one of any registration: mint the challenge and the options the browser needs. */
 async function beginRegistration(
   purpose: PasskeyPurpose,
   memberId: string,
@@ -549,7 +535,6 @@ async function takeCeremony<S extends z.ZodType>(
   return { data: parsed.data, pending };
 }
 
-/** Verify a fresh registration and refuse a credential id already on file. */
 async function verifyNewPasskey(
   response: z.infer<typeof registrationSchema>,
   challenge: string,
@@ -616,8 +601,7 @@ export async function finishPasskeySignInAction(
   const ceremony = await takeCeremony(assertionSchema, response, "login");
   if (!ceremony) return { ok: false, error: "That took too long. Try signing in again." };
 
-  // One message for "no such credential" and "bad signature" alike: an unauthenticated caller
-  // should not learn which.
+  // One message for both failures: an unauthenticated caller must not learn which.
   const rejected: ActionResult = { ok: false, error: "That passkey didn't work. Try again." };
   const credential = await findCredential(ceremony.data.id);
   if (!credential) {
@@ -651,8 +635,8 @@ export async function removePasskeyAction(credentialId: string): Promise<ActionR
 }
 
 // ---------- an account from nothing ----------
-// The join ceremony without the invite. The member id is minted at step one and carried in the
-// sealed challenge, so the passkey and the row agree on who this is before either exists.
+// The join ceremony without an invite. The member id is minted at step one and carried in the
+// sealed challenge, so passkey and row agree on who this is.
 
 const signupSchema = z.object({
   name: z.string().min(1).max(64),
@@ -721,7 +705,6 @@ export async function beginJoinAction(
   });
 }
 
-/** Returns the trip and the key wrap; the phone opens it with the fragment's secret, then goes. */
 export async function finishJoinAction(
   input: unknown,
 ): Promise<ActionResult & { tripId?: string; key?: KeyHandover | null }> {
@@ -761,9 +744,9 @@ export async function finishJoinAction(
 }
 
 // ---------- recovering a seat ----------
-// The one flow that can hand somebody an account with history in it: its own challenge purpose,
-// the member id pinned in the cookie at step one and re-checked at step two, the link spent in
-// the transaction that stores the key (lib/data.ts).
+// The one flow that hands over an account with history: its own challenge purpose, the member id
+// pinned at step one and re-checked at step two, the link spent in the transaction that stores
+// the key (lib/data.ts).
 
 const recoverSchema = z.object({
   code: z.string().min(1).max(128),
@@ -784,7 +767,6 @@ export async function mintRecoveryAction(
   );
 }
 
-/** The member a link names, shutting it from the banner that follows them anywhere. */
 export async function shutOwnRecoveryAction(code: string): Promise<ActionResult> {
   return mutate((memberId) => revokeRecovery(memberId, code));
 }
@@ -804,7 +786,7 @@ export async function beginRecoveryAction(
   }
   const member = await getMember(row.memberId);
   if (!member) return { ok: false, error: "That seat is gone." };
-  // Excluding the keys already on the seat makes a device that can still sign in say so.
+  // Excluding keys already on the seat lets a device that can still sign in say so.
   const held = await listCredentials(member.id);
   return beginRegistration("recover", member.id, member.name, {
     link: { memberId: member.id, code },
@@ -812,7 +794,6 @@ export async function beginRecoveryAction(
   });
 }
 
-/** Returns the key wrap the link carried, if any; the phone opens it before going anywhere. */
 export async function finishRecoveryAction(input: unknown): Promise<ActionResult> {
   const ceremony = await takeCeremony(recoverSchema, input, "recover");
   if (!ceremony?.pending.link) {
@@ -842,6 +823,6 @@ export async function finishRecoveryAction(input: unknown): Promise<ActionResult
     { memberId: recovered.member.id, provider: "recovery" },
     "member signed in after a recovery",
   );
-  // The phone sends them to their own page, where every key that can sign in as them is listed.
+  // Their own page lists every key that can sign in as them.
   return { ok: true };
 }

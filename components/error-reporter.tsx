@@ -1,12 +1,9 @@
 "use client";
 
-// How a phone tells the server it broke. The boundaries (app/error.tsx,
-// app/global-error.tsx) call `sendReport` for what React caught; the
-// component below catches what React never sees — an event handler, an
-// effect, a promise nobody awaited — as window events. What goes is decided
-// in lib/report: name, message, stack, digest, and the path with its secret
-// masked. A few per page load, each once, and a report that itself fails is
-// dropped rather than reported.
+// How a phone tells the server it broke. The boundaries (app/error.tsx, app/global-error.tsx)
+// call `sendReport` for what React caught; the component below catches the rest (event handlers,
+// effects, unawaited promises) as window events. lib/report decides what goes. A few per page
+// load, each once; a report that itself fails is dropped.
 
 import { useEffect } from "react";
 import { reportClientErrorAction } from "@/app/actions";

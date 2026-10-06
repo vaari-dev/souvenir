@@ -28,7 +28,6 @@ const heading = "display text-xl font-bold uppercase tracking-wide text-soft";
 const row = "flex items-center gap-3 px-4 py-2.5 text-sm";
 const rowLink = "min-w-0 flex-1 font-semibold hover:underline";
 
-/** One member: their number, record, open calls, ledger — and, beside the name, the organiser and recovery panels. */
 export function MemberPage({
   memberId,
   minResolved,
@@ -36,7 +35,6 @@ export function MemberPage({
 }: {
   memberId: string;
   minResolved: number;
-  /** The one live recovery link for this seat, if the viewer may see it. */
   liveRecovery: { code: string; url: string; expiresAt: Date } | null;
 }) {
   const { tripId, me, t, roster, people, state } = useOpenTrip();
@@ -57,7 +55,6 @@ export function MemberPage({
   const firstName = member.name.split(/\s+/)[0];
   const you = (other: string) => (isMe ? "you" : other);
 
-  // Running balance, replayed from the append-only ledger; shown newest first.
   const withBalance = [];
   let running = 0;
   for (const item of memberLedger(state, people, member.id).reverse()) {

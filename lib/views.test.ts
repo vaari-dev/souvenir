@@ -99,9 +99,7 @@ describe("markets", () => {
     expect(open[0]?.watchers).toBe(1);
     expect(open[0]?.commentCount).toBe(1);
     expect(open[0]?.participants.map((p) => p.member.id)).toEqual(["a"]);
-    // b has not called m3 and did not create it: it is picked for them.
     expect(forYou.map((v) => v.market.id)).toEqual(["m3"]);
-    // a is in it already: nothing to pick.
     expect(listMarkets(state, people, "a", at(20)).forYou).toEqual([]);
   });
 

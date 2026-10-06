@@ -5,11 +5,8 @@ import { routes } from "@/lib/routes";
 export const metadata: Metadata = { title: "Terms" };
 
 /**
- * Plain terms, written for a friend group rather than a court. The clauses
- * that matter are the ones a regulator or a store reviewer would look for:
- * no money, 18+, the organiser's powers, and the door out. A lawyer should
- * read these before the app is marketed at scale; they are a starting point,
- * not a substitute.
+ * Plain terms for a friend group. The clauses a regulator or store reviewer looks for: no
+ * money, 18+, the organiser's powers, the door out. A lawyer reads them before scale.
  */
 export default function TermsPage() {
   return (

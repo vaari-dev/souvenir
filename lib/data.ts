@@ -51,7 +51,6 @@ const LAST_ORGANISER = "Someone has to be able to invite. Make another member an
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** The first row of a query, or null: the shape of every lookup by id. */
 async function first<T>(query: PromiseLike<T[]>): Promise<T | null> {
   const [row] = await query;
   return row ?? null;
@@ -83,7 +82,6 @@ export async function getTrip(id: string): Promise<Trip | null> {
   return first(db.select().from(trips).where(eq(trips.id, id)));
 }
 
-/** The trip and the member's seat on it, or null when they have none. */
 export async function tripFor(memberId: string, tripId: string): Promise<TripContext | null> {
   return first(
     db
@@ -116,7 +114,7 @@ export interface TripSummary {
   memberCount: number;
 }
 
-/** Every trip the member is on, newest first. What is open on each is sealed; only the roster counts. */
+/** Newest first. What is open on each is sealed; only the roster counts. */
 export async function listTrips(memberId: string): Promise<TripSummary[]> {
   const rows = await db
     .select({ trip: trips, role: memberships.role })
@@ -178,7 +176,7 @@ export type TripUpdate = Omit<TripInput, "destination" | "homeLanguage" | "homeC
   nameEnc?: string;
 };
 
-/** Name, dates, or cap. Organisers only; the language pair is fixed. */
+/** Organisers only; the language pair is fixed. */
 export async function updateTrip(
   actorId: string,
   tripId: string,
@@ -207,7 +205,7 @@ export async function updateTrip(
   return updated;
 }
 
-/** The live roster, in the order they joined — `joinedAt` is the seat's, not the account's. */
+/** In join order; `joinedAt` is the seat's, not the account's. */
 export async function membersOf(tripId: string): Promise<(Member & { role: MembershipRole })[]> {
   const rows = await db
     .select({ member: members, role: memberships.role, joinedAt: memberships.joinedAt })
@@ -218,7 +216,7 @@ export async function membersOf(tripId: string): Promise<(Member & { role: Membe
   return rows.map((r) => ({ ...r.member, role: r.role, joinedAt: r.joinedAt }));
 }
 
-/** Everyone the trip has ever seated, plus authors in the sealed log whose seat is gone. */
+/** Everyone ever seated, plus log authors whose seat is gone. */
 async function membersById(tripId: string): Promise<Map<string, Member>> {
   const onRecord = union(
     db.select({ id: memberships.memberId }).from(memberships).where(eq(memberships.tripId, tripId)),
@@ -374,7 +372,7 @@ export interface KeyGrant {
   wrapped: string;
 }
 
-/** The newest grant for this member on this trip, for the trip's current epoch. */
+/** For the trip's current epoch. */
 export async function myGrant(memberId: string, tripId: string): Promise<KeyGrant | null> {
   const { trip } = await requireMembership(tripId, memberId);
   const [row] = await db
@@ -401,7 +399,7 @@ export async function takeGrant(memberId: string, id: string): Promise<void> {
 
 // ---------- accounts ----------
 
-/** Every Google sign-in: the member, created on first arrival. No allowlist, no starting grant. */
+/** Creates the member on first arrival. No allowlist, no starting grant. */
 export async function ensureMember(
   email: string,
   name: string | null,
@@ -441,7 +439,7 @@ function checkName(raw: string): string {
   return name;
 }
 
-/** A passkey-only member: the row and the credential that proved itself, in one transaction. */
+/** Member row and credential in one transaction. */
 async function insertMember(
   tx: Tx,
   input: { memberId: string; name: string; lingo?: string; credential: VerifiedRegistration },
@@ -586,7 +584,6 @@ export async function addCredential(
   logger.info({ memberId, backedUp: credential.backedUp }, "passkey registered");
 }
 
-/** After a verified sign-in: advance the clone counter and note the visit. */
 export async function noteCredentialUse(
   id: string,
   signCount: number,
@@ -619,7 +616,6 @@ export async function hasPasskey(memberId: string): Promise<boolean> {
   return Boolean(row);
 }
 
-/** Who on the trip holds at least one passkey. */
 export async function passkeyHolders(tripId: string): Promise<Set<string>> {
   const rows = await db
     .selectDistinct({ memberId: credentials.memberId })
@@ -642,7 +638,7 @@ export async function listPasskeySummaries(memberId: string) {
   }));
 }
 
-/** Every passkey of a member and whether a keyring backup exists under it — one query, for the layout. */
+/** With whether a keyring backup exists under each; one query, for the layout. */
 export async function passkeyBackups(
   memberId: string,
 ): Promise<{ id: string; wrapped: boolean }[]> {
@@ -655,7 +651,7 @@ export async function passkeyBackups(
   return rows.map((r) => ({ id: r.id, wrapped: r.wrap != null }));
 }
 
-/** A member by id — null once they have deleted their account. */
+/** Null once they have deleted their account. */
 export async function getMember(id: string): Promise<Member | null> {
   const [m] = await db.select().from(members).where(eq(members.id, id));
   return m && !m.deletedAt ? m : null;
@@ -700,7 +696,7 @@ export async function getAvatar(
 
 // ---------- invite links ----------
 
-/** Returns the code, which is also stored, so the organiser can copy the same link again. */
+/** Returns the code; the link is shown once, on the minting phone. */
 export async function mintInvite(
   tripId: string,
   inviterId: string,
@@ -808,7 +804,6 @@ async function lockInvite(tx: Tx, code: string): Promise<InviteRow> {
   return invite;
 }
 
-/** Spend a locked link: checked live, count bumped. */
 async function spendInvite(tx: Tx, invite: InviteRow): Promise<void> {
   if (inviteState(invite, new Date()) !== "live") {
     throw new DataError("That invite link has already been used or has expired.");
@@ -887,7 +882,6 @@ export interface RecoveryView {
   mintedBy: Member | null;
 }
 
-/** Whether `actorId` organises a trip that `memberId` is on. */
 async function organisesWith(actorId: string, memberId: string): Promise<boolean> {
   const [row] = await db
     .select({ tripId: memberships.tripId })
@@ -951,7 +945,7 @@ export async function findRecovery(code: string): Promise<RecoveryRow | null> {
   return first(db.select().from(recoveries).where(eq(recoveries.code, code)));
 }
 
-/** Live links and ones walked through in the last week — read by every member, not just organisers. */
+/** Live and last-week-used links; every member reads them, not just organisers. */
 export async function listRecoveries(
   tripId: string,
 ): Promise<{ live: RecoveryView[]; used: RecoveryView[] }> {
@@ -1210,7 +1204,6 @@ export async function findRekey(code: string): Promise<RekeyRow | null> {
   return first(db.select().from(rekeys).where(eq(rekeys.code, code)));
 }
 
-/** Live links on a trip, for the members page. */
 export async function listRekeys(tripId: string): Promise<RekeyView[]> {
   const memberById = await membersById(tripId);
   const rows = await db
@@ -1231,7 +1224,7 @@ export async function listRekeys(tripId: string): Promise<RekeyView[]> {
  */
 const REKEY_REPEAT_MS = 10 * 60 * 1000;
 
-/** Spend a link: only the member it names, once — with a short grace for a repeat. */
+/** Only the member it names, once, with a short grace for a repeat. */
 export async function spendRekey(memberId: string, code: string): Promise<RekeyRow> {
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(rekeys).where(eq(rekeys.code, code)).for("update");
@@ -1250,7 +1243,7 @@ export async function spendRekey(memberId: string, code: string): Promise<RekeyR
   });
 }
 
-/** Anyone on the trip can shut a live link: a stray one is everybody's business. */
+/** Any member may shut one: a stray link is everybody's business. */
 export async function revokeRekey(actorId: string, code: string): Promise<void> {
   const row = await findRekey(code);
   if (!row) return;
@@ -1327,7 +1320,6 @@ export async function publishCard(
   logger.info({ tripId, marketId: input.marketId, memberId }, "card published");
 }
 
-/** Anyone on the trip can take a card down. */
 export async function unpublishCard(memberId: string, marketId: string): Promise<void> {
   const [card] = await db.select().from(cards).where(eq(cards.marketId, marketId));
   if (!card) return;

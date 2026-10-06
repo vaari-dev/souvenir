@@ -1,10 +1,8 @@
 name: Speech check
 
-# Hears every language a trip can speak, with the production voice settings,
-# before a member does: `pnpm speech:check` run with the oracle-cloud
-# environment's SPEECH_* values, so nobody copies the key anywhere. The report
-# is in the log; the clips are the run's artifact, for a person to play.
-# Run it from the Actions tab after changing a voice, and before redeploying.
+# `pnpm speech:check` with the oracle-cloud environment's SPEECH_* values, so the key is never
+# copied. The report is in the log; the clips are the artifact. Run by hand after changing a
+# voice, before redeploying.
 
 on:
   workflow_dispatch:

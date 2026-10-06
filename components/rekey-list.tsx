@@ -5,7 +5,6 @@ import type { ActionResult } from "@/app/actions";
 import { revokeRekeyAction } from "@/app/actions";
 import { ActError, useAct } from "./use-act";
 
-/** Shut a live link and refresh the list it sits in. */
 export function ShutLink({
   label = "Shut it",
   shut,

@@ -1,22 +1,18 @@
-// Ranking math for the "For you" rail. Pure and deterministic like
-// lib/engine.ts: callers hand in plain data (open markets, the full market
-// history, which markets the viewer has looked at) and get back an ordered
-// list of markets the viewer hasn't joined, each with the reasons it ranked.
+// Ranking for the "For you" rail. Pure and deterministic: given open markets, the full history and
+// which markets the viewer has opened, returns markets the viewer hasn't joined, with reasons.
 //
-// The score is a weighted blend of ten signals, every one derived from the
-// ledger, view log, and reaction rows — nothing aggregated is stored:
-//   heat       time-decayed betting action (24h half-life) — busy tables rank
+// Score is a weighted blend of ten signals derived from the ledger, view log and reactions;
+// weights sum to 1 so a score is in [0, 1]:
+//   heat       time-decayed betting action (24h half-life)
 //   pool       pies on the line
-//   contested  how close the yes/no split is (a 50/50 pot beats a landslide)
-//   crowd      how many members hold a stake
+//   contested  how close the yes/no split is
+//   crowd      members holding a stake
 //   social     how often the viewer bets alongside this market's backers
-//   topic      TF-IDF similarity between this question and the viewer's past bets
-//   fresh      newly opened markets get an exploration boost (72h half-life)
-//   unseen     the viewer hasn't even opened the page yet
-//   endorse    upvotes from other members — the group vouches for the question
-//   watching   the viewer flagged interest themselves (watch, or upvote at
-//              half strength) without betting — the strongest personal signal
-// Weights sum to 1 so a score is always in [0, 1].
+//   topic      TF-IDF similarity to the viewer's past bets
+//   fresh      exploration boost for new markets (72h half-life)
+//   unseen     the viewer hasn't opened the page
+//   endorse    upvotes from other members
+//   watching   the viewer's own watch (or upvote at half strength) without a stake
 
 import type { Side } from "./engine.ts";
 
@@ -26,7 +22,6 @@ export interface StakeSnapshot {
   stakeC: number;
 }
 
-/** One bet or switch, reduced to who and when — the heat signal's input. */
 export interface ActionEvent {
   memberId: string;
   at: Date;
@@ -45,12 +40,11 @@ export interface CandidateMarket {
   watcherIds: string[];
 }
 
-/** Any market, open or resolved — the affinity and topic corpora. */
+// Any market, open or resolved: the affinity and topic corpora.
 export interface MarketHistory {
   id: string;
   creatorId: string;
   question: string;
-  /** Members holding a final stake (after switches). */
   participantIds: string[];
 }
 
@@ -68,7 +62,6 @@ export type Reason =
 export interface Recommendation {
   marketId: string;
   score: number;
-  /** Ordered by how much each signal contributed. */
   reasons: Reason[];
 }
 
@@ -102,17 +95,14 @@ function decay(since: Date, now: Date, halfLifeH: number): number {
   return 2 ** (-hours / halfLifeH);
 }
 
-/** Squash an unbounded count into [0, 1); `mid` is the halfway point. */
+// Maps a count into [0, 1); `mid` is the halfway point.
 function squash(x: number, mid: number): number {
   return x / (x + mid);
 }
 
 // ---------- social affinity ----------
 
-/**
- * How often the viewer shares a table with each other member: one point per
- * market where both were involved (staked or created it).
- */
+// One point per market where both were involved (staked or created it).
 function affinityByMember(viewerId: string, history: MarketHistory[]): Map<string, number> {
   const affinity = new Map<string, number>();
   for (const market of history) {
@@ -128,8 +118,7 @@ function affinityByMember(viewerId: string, history: MarketHistory[]): Map<strin
 
 // ---------- topic similarity ----------
 
-// Question-scale stopwords; anything both sides share ("will", "before") says
-// nothing about taste. IDF handles the rest of the common-word problem.
+// Words every question shares ("will", "before") say nothing about taste; IDF handles the rest.
 const STOPWORDS = new Set(
   (
     "a an and are at be before by can does for from get has have his her if in is it its of on or " +
@@ -159,7 +148,6 @@ function cosine(a: Vector, b: Vector): number {
   return na > 0 && nb > 0 ? dot / Math.sqrt(na * nb) : 0;
 }
 
-/** TF-IDF vectors for every market question, IDF taken over the whole corpus. */
 function questionVectors(history: MarketHistory[]): Map<string, Vector> {
   const docs = new Map(history.map((m) => [m.id, tokenize(m.question)]));
   const df = new Map<string, number>();
@@ -179,7 +167,6 @@ function questionVectors(history: MarketHistory[]): Map<string, Vector> {
   return vectors;
 }
 
-/** The viewer's taste: the summed vectors of every question they engaged with. */
 function tasteVector(
   viewerId: string,
   history: MarketHistory[],
@@ -200,11 +187,9 @@ function tasteVector(
 export function recommend(input: {
   viewerId: string;
   now: Date;
-  /** Open markets; the viewer's own and ones they already joined are dropped here. */
+  /** Open markets; the viewer's own and joined ones are dropped. */
   candidates: CandidateMarket[];
-  /** Every market ever, including the candidates. */
   history: MarketHistory[];
-  /** Markets the viewer has opened the page of. */
   viewedMarketIds: ReadonlySet<string>;
   limit?: number;
 }): Recommendation[] {
@@ -245,8 +230,6 @@ export function recommend(input: {
 
     const upvotes = market.upvoterIds.filter((id) => id !== viewerId).length;
     const endorse = squash(upvotes, 2);
-    // Watching is a standing "tell me more"; the viewer's own upvote is a
-    // weaker "good question" — both mean interest without a stake yet.
     const watching = market.watcherIds.includes(viewerId)
       ? 1
       : market.upvoterIds.includes(viewerId)
@@ -291,8 +274,7 @@ export function recommend(input: {
         contribution: WEIGHTS.fresh * fresh,
       },
       {
-        // "you haven't looked" only earns a chip once the market has been
-        // around a while — on a brand-new market "fresh" already says it.
+        // On a brand-new market "fresh" already says it.
         reason:
           unseen === 1 && now.getTime() - market.createdAt.getTime() > 24 * HOURS
             ? { kind: "unseen" }

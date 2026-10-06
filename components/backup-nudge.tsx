@@ -1,11 +1,9 @@
 "use client";
 
-// A phone that holds keys, and a passkey no backup is sealed under: the one
-// tap that makes the next device read every trip by itself. The secret the
-// backup wants comes only from a ceremony, and `create()` may withhold it
-// (Chrome does; passkeys enrolled before backups existed never gave one), so
-// this asks the passkey once with a `get()`. Plain language in every lingo:
-// a notice, not flavour.
+// A phone that holds keys, and a passkey no backup is sealed under: one tap makes the next
+// device read every trip by itself. The backup's secret comes only from a ceremony and `create()`
+// may withhold it (Chrome does), so this asks the passkey once with a `get()`. Plain language in
+// every lingo: a notice, not flavour.
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -41,7 +39,6 @@ export function BackupNudge({
   wrapped,
 }: {
   rpId: string;
-  /** Every passkey of the signed-in member. */
   held: string[];
   /** Those a keyring backup already exists under. */
   wrapped: string[];

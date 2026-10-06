@@ -33,16 +33,14 @@ const amountField =
   "mono w-28 rounded-md border border-line bg-surface px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-felt";
 
 /**
- * Add or edit one bill. The fast path is one screen: amount, what for, who
- * paid (you), split equally with everyone. Multiple payers and unequal shares
- * unfold only when asked for.
+ * Add or edit one bill. Fast path: amount, what for, you paid, split equally; more payers and
+ * unequal shares unfold on request.
  */
 export function BillForm({
   currencies,
   initial,
   onDone,
 }: {
-  /** The trip's one or two currencies, the default first. */
   currencies: readonly Currency[];
   initial?: BillView;
   onDone: () => void;

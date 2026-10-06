@@ -1,21 +1,17 @@
 # Ideas — making Souvenir more useful to a travelling group
 
-Written 25 August 2026, after the mobile-responsiveness pass; struck through
-as things ship. Not a plan; a shelf. Each idea is checked against the rules in `AGENTS.md`: content is a
+A shelf, not a plan. Each idea fits the rules in `AGENTS.md`: content is a
 sealed event and replay derives the page, the server never needs plaintext,
 and stamps are never money.
 
-The lens: the app already has the three things a trip group lacks in the
-group chat — a roster, a sealed shared record, and a per-trip clock
-(`tripToday`). The best ideas turn daily logistics *into* the record, so the
-game feeds itself.
+The lens: the app has what a group chat lacks — a roster, a sealed shared
+record, and a per-trip clock (`tripToday`). The best ideas turn daily
+logistics *into* the record, so the game feeds itself.
 
 ## Make it the thing you open ten times a day (during the trip)
 
-1. **A "Today" sheet.** During the trip the home page should be today in the
-   trip's timezone: plans for today, predictions that should resolve today,
-   today's bills, phrases kept today. The manifest already says the trip is
-   what people open ten times a day; nothing is built for *today* yet.
+1. **A "Today" sheet.** During the trip the home page is today in the
+   trip's timezone: plans, predictions due to resolve, bills, phrases kept.
 2. **Plans with "who's in?"** A `plan` event ("Doi Suthep, 5 AM — who's in?")
    with RSVPs, and the app offers the prediction "Will everyone who said yes
    actually show?" by itself. Logistics become game content instead of
@@ -32,10 +28,6 @@ game feeds itself.
 5. **The kitty.** Most groups have one person holding cash for taxis. Model a
    float (contributions in, spend out) inside bills — a constant real-world
    pattern the split model doesn't express.
-6. ~~**One rate to settle across currencies.**~~ Shipped: the bills page
-   settles the whole trip in the home currency at the day's public rate plus
-   a forex charge (`lib/fx`), and falls back to per-currency when no rate is
-   reachable. Still a ledger, never a rail.
 7. **Last-day settle sheet.** The trip knows when it ends *there*; on that
    day, surface what is still open and a shareable text card for the chat
    (like `ShareRecap` — never a payment link).
@@ -77,9 +69,7 @@ Unresolved predictions are what kill prediction games.
 ## If only five
 
 Today sheet (1), plans with the auto-prediction (2), resolve-by nudges (9),
-the kitty (5), places cards (13). All are sealed-event
-work plus `lib/views` / `lib/stats` derivations with tests — no plaintext
-column, no server logic that needs content.
+the kitty (5), places cards (13).
 
 ## Left out on purpose
 

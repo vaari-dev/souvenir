@@ -1,29 +1,17 @@
-// Settling the whole trip in one currency. Pure; covered by fx.test.ts.
+// Settling the whole trip in one currency. lib/split keeps the two currencies apart; this is the
+// bridge. Foreign nets are read in the home currency at the day's rate plus the forex charge,
+// rounded by largest remainder so they still sum to zero, and added to the home nets: one balance
+// per member, one plan.
 //
-// A trip spends two currencies and lib/split keeps them apart: foreign owed
-// is foreign owed, and there is no rate in there. But the group flies home,
-// and at home nobody is paying anybody in the money they spent there. This
-// module is the bridge: the
-// foreign nets are read in the home currency at the day's rate, marked up by
-// the forex charge every card and exchange counter takes, and added to the
-// home nets — one balance per member, one plan, all in the money the group
-// actually has. The conversion keeps the zero-sum: the converted foreign nets
-// are rounded by largest remainder so they still sum to exactly nothing.
-//
-// The rate is public data fetched by the server (lib/rates.ts); it carries no
-// trip content, only which two currencies, which the trip row already holds.
+// The rate is public data fetched by the server (lib/rates.ts); it carries only which two
+// currencies, which the trip row already holds.
 
 import { CURRENCY_INFO, type Currency, isCurrency, settleUpPlan, type Transfer } from "./split.ts";
 
-/**
- * The forex charge, in basis points, added on top of the mid-market rate to
- * everything spent in the foreign currency — what a card or an exchange
- * counter actually took. It lands on the whole foreign balance, both sides,
- * so a creditor is made whole for the markup and the nets stay zero-sum.
- */
+// Added to the mid-market rate on the whole foreign balance, both sides, so a creditor is made
+// whole for the markup and the nets stay zero-sum.
 export const FX_SURCHARGE_BPS = 500;
 
-/** How many units of `to` one unit of `from` buys, on the day it was read. */
 export interface FxRate {
   from: Currency;
   to: Currency;
@@ -34,11 +22,8 @@ export interface FxRate {
 
 export class FxError extends Error {}
 
-/**
- * Read a provider's answer into a rate, or null. The shape is currency-api's
- * (`{ date, [from]: { [to]: number } }`); anything missing, non-numeric, or
- * not positive is treated as "no rate today" rather than a rate of zero.
- */
+// Shape is currency-api's (`{ date, [from]: { [to]: number } }`). Anything missing, non-numeric
+// or not positive is "no rate", never zero.
 export function parseRate(body: unknown, from: Currency, to: Currency): FxRate | null {
   if (typeof body !== "object" || body === null) return null;
   const record = body as Record<string, unknown>;
@@ -51,17 +36,12 @@ export function parseRate(body: unknown, from: Currency, to: Currency): FxRate |
   return { from, to, rate, asOf };
 }
 
-/** `amountC` of `rate.from`, in centi-units of `rate.to`, surcharge included — unrounded. */
+// Unrounded, surcharge included.
 export function inHome(amountC: number, rate: FxRate, surchargeBps = FX_SURCHARGE_BPS): number {
   return (amountC * rate.rate * (10_000 + surchargeBps)) / 10_000;
 }
 
-/**
- * Round each real to an integer so the integers sum to exactly `total`
- * (largest remainder: floor everything, then hand the leftover units to the
- * biggest fractional parts, ties by index). The same rounding lib/engine uses
- * for payouts, for the same reason — the pieces must add back up.
- */
+// Largest remainder, ties by index; the same rounding lib/engine uses for payouts.
 export function roundToSum(values: number[], total: number): number[] {
   if (!Number.isInteger(total)) throw new FxError("The total must be a whole number.");
   const floors = values.map((v) => Math.floor(v));
@@ -81,10 +61,6 @@ export function roundToSum(values: number[], total: number): number[] {
   return out.map((v) => (v === 0 ? 0 : v));
 }
 
-/**
- * The foreign nets read in the home currency, surcharge included, rounded so
- * they still sum to nothing: what was zero-sum there is zero-sum at home.
- */
 export function convertNets(
   foreign: Map<string, number>,
   rate: FxRate,
@@ -97,23 +73,16 @@ export function convertNets(
   return new Map(ids.map((id, i) => [id, rounded[i] ?? 0]));
 }
 
-/** One member's balance for the whole trip, and where it came from. */
 export interface CombinedNet {
-  /** Their net in the home currency's own bills. */
   homeC: number;
-  /** Their net in the foreign currency, as spent. */
   foreignC: number;
-  /** That foreign net read in the home currency, surcharge included. */
+  /** The foreign net in home currency, surcharge included. */
   foreignHomeC: number;
-  /** homeC + foreignHomeC: what the trip owes them (positive) or they owe it. */
+  /** homeC + foreignHomeC. */
   netC: number;
 }
 
-/**
- * Fold per-currency nets into one balance per member in the home currency.
- * Refuses a currency it has no rate for — a trip has one foreign currency,
- * and a bill in a third would be silently mispriced by any guess.
- */
+// Refuses a currency it has no rate for: a guess would silently misprice it.
 export function combinedNets(
   byCurrency: Map<Currency, Map<string, number>>,
   home: Currency,
@@ -151,17 +120,12 @@ export function combinedNets(
   return out;
 }
 
-/** The transfers that clear every combined net, in the home currency. */
 export function combinedPlan(combined: Map<string, CombinedNet>): Transfer[] {
   return settleUpPlan(new Map([...combined].map(([id, c]) => [id, c.netC])));
 }
 
-/**
- * "฿1 = ₹2.61", or "₫1,000 = ₹3.30" for money so small a unit of it says
- * nothing: the unit grows by tens until it buys at least one of the home
- * currency. The mid-market rate, before the surcharge — the note beside it
- * says what was added.
- */
+// "฿1 = ₹2.61", or "₫1,000 = ₹3.30": the unit grows by tens until it buys at least one home
+// unit. Mid-market, before the surcharge.
 export function fmtRate(rate: FxRate): string {
   if (!isCurrency(rate.from) || !isCurrency(rate.to)) return `${rate.from} → ${rate.to}`;
   const from = CURRENCY_INFO[rate.from];

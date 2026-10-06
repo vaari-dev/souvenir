@@ -16,9 +16,8 @@ import { useTakeKey } from "./take-key";
 import { useAct } from "./use-act";
 
 /**
- * A new member: pick a name, tick the box, make a passkey. With a `code` it
- * joins that link's trip and takes the key it carries; without one it opens an
- * account and the server sends them to open their first trip.
+ * A new member: name, terms, passkey. With a `code` it joins that link's trip and takes its key;
+ * without, it opens an account and the server sends them to open a first trip.
  */
 export function JoinForm({ code, label }: { code?: string; label?: string }) {
   const router = useRouter();
@@ -36,7 +35,6 @@ export function JoinForm({ code, label }: { code?: string; label?: string }) {
       );
       if ("error" in made) return { ok: false, error: made.error };
       if (!code) {
-        // Success redirects, so anything returned here is a refusal.
         const result = await finishSignupAction({ name, lingo, agreed, response: made.wire });
         return { ok: false, error: result.error };
       }

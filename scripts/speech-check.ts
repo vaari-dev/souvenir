@@ -1,11 +1,9 @@
-// Whether the voice service can say every language a trip can be pointed at.
-// Run with: pnpm speech:check — against a deploy's SPEECH_* values, so locally
-// with the production key in .env, or on the box from the image:
+// Whether the voice service can say every language a trip can be pointed at, against a
+// deploy's SPEECH_* values. Run with: pnpm speech:check, or on the box from the image:
 //   docker compose run --rm -v "$PWD/clips:/app/clips" migrate node scripts/speech-check.ts
 //
-// One request per language and side, a greeting in that language, and a clip
-// written beside the report for a person to play: a request the vendor accepts
-// proves the voice id and the language name, and only an ear proves the accent.
+// One greeting per language and side, with a clip to play: an accepted request proves the voice
+// id and language name, only an ear proves the accent.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,8 +19,7 @@ async function main() {
   }
   mkdirSync(OUT, { recursive: true });
 
-  // Every language once per side it can be on: the group's own languages on
-  // the near side, every destination's on the far one.
+  // Home languages on the near side, destinations' on the far one.
   const jobs = new Map<string, { speaker: Speaker; side: Side }>();
   for (const speaker of Object.values(HOME))
     jobs.set(`us/${speaker.code}`, { speaker, side: "us" });

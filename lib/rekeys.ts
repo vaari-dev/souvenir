@@ -4,13 +4,12 @@
 
 import { DAY_MS, linkState, MINUTE_MS } from "./links.ts";
 
-/** Long enough to walk somebody through it on a call. */
 export const REKEY_TTL_MS = 30 * MINUTE_MS;
 
-/** The seal script prints one per member, handed out by hand over days. */
+// The seal script prints one per member, handed out by hand over days.
 export const CONSOLE_REKEY_TTL_MS = 7 * DAY_MS;
 
-/** The link, without its secret — the caller adds the fragment. */
+// Without its secret; the caller adds the fragment.
 export function rekeyUrl(baseUrl: string, code: string): string {
   return `${baseUrl}/k/${code}`;
 }

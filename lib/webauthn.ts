@@ -1,36 +1,26 @@
-// Passkey (WebAuthn) verification, implemented directly on node:crypto — no
-// auth library, in the spirit of lib/auth.ts.
+// Passkey (WebAuthn) verification on node:crypto. Sign-in is a signature over
+// `authenticatorData ‖ sha256(clientDataJSON)` checked against the stored key; all we keep is a
+// credential id, a public key and a counter.
 //
-// A passkey is a keypair the member's device holds. Registration hands us a
-// public key; every sign-in hands us a signature over
-// `authenticatorData ‖ sha256(clientDataJSON)`, which we check against that
-// stored key. Nothing identifying is involved at any point: what we keep is a
-// random credential id, a public key, and a counter.
+// Attestation is deliberately not verified: it would reveal the authenticator's make and model,
+// which this app has no business storing, and trust comes from the invite, not the hardware.
 //
-// Attestation is deliberately not verified. It would tell us which make and
-// model of authenticator a member used, which is exactly the kind of fact this
-// app has no business storing — and it proves nothing we need, since trust
-// comes from the invite that let them register, not from their hardware. We
-// ask the browser for `attestation: "none"` and ignore the statement.
-//
-// This module is pure: no env, no database, no cookies. The caller supplies
-// what it expects (rp id, origin, the challenge it issued, the stored
-// credential) and gets back a verified result or a WebAuthnError.
+// Pure: no env, database or cookies.
 
 import { createHash, createPublicKey, type KeyObject, verify } from "node:crypto";
 import { CborError, type CborMap, type CborValue, decodeCbor, decodeCborAt } from "./cbor.ts";
 
 export class WebAuthnError extends Error {}
 
-/** COSE algorithm ids. ES256 is what phones and laptops use; RS256 is TPMs. */
+// COSE algorithm ids. ES256 is phones and laptops; RS256 is TPMs.
 export const ES256 = -7;
 export const RS256 = -257;
 const SUPPORTED_ALGS: readonly number[] = [ES256, RS256];
 
-/** Long enough to find a phone and unlock it, short enough to expire a stale tab. */
+// Long enough to find a phone and unlock it, short enough to expire a stale tab.
 export const CEREMONY_TIMEOUT_MS = 120_000;
 
-/** Algorithms in the order we prefer them: ES256 first, RS256 for TPMs. */
+// Preference order.
 const CREDENTIAL_PARAMS = SUPPORTED_ALGS.map((alg) => ({ type: "public-key" as const, alg }));
 
 /** Discoverable, so sign-in needs no identifier; UV is whatever the device offers. */
@@ -41,15 +31,14 @@ const AUTHENTICATOR_SELECTION = {
 } as const;
 
 // Authenticator data flag bits (WebAuthn §6.1).
-const FLAG_UP = 0x01; // user present — someone touched the thing
-const FLAG_UV = 0x04; // user verified — biometric or PIN
-const FLAG_BS = 0x10; // backup state — the key is synced to a credential manager
+const FLAG_UP = 0x01;
+const FLAG_UV = 0x04;
+const FLAG_BS = 0x10; // synced to a credential manager
 const FLAG_AT = 0x40; // attested credential data follows
 const FLAG_ED = 0x80; // extension data follows
 
 // --- wire shapes --------------------------------------------------------------
-// What the browser's PublicKeyCredential is flattened into before it crosses
-// the server-action boundary; every binary field is base64url.
+// A PublicKeyCredential flattened to cross the server-action boundary; binary fields are base64url.
 
 export interface RegistrationResponse {
   id: string;
@@ -64,18 +53,15 @@ export interface AssertionResponse {
   signature: string;
 }
 
-/** What the server knows it asked for, checked against what came back. */
 export interface Expectations {
-  /** The registrable domain the credential is scoped to (no scheme, no port). */
+  /** No scheme, no port. */
   rpId: string;
-  /** Exact origin string, e.g. "https://souvenir.example" or "http://localhost:3000". */
   origin: string;
-  /** The base64url challenge this server issued, as issued. */
   challenge: string;
 }
 
 export interface StoredCredential {
-  /** SPKI DER, as returned by verifyRegistration. */
+  /** SPKI DER. */
   publicKey: Buffer;
   alg: number;
   signCount: number;
@@ -86,7 +72,6 @@ export interface VerifiedRegistration {
   publicKey: Buffer;
   alg: number;
   signCount: number;
-  /** The authenticator syncs this key to a credential manager (iCloud, etc). */
   backedUp: boolean;
   userVerified: boolean;
 }
@@ -104,18 +89,14 @@ export interface AuthenticatorData {
   userVerified: boolean;
   backedUp: boolean;
   signCount: number;
-  /** Present only on registration, where FLAG_AT is set. */
+  /** Registration only (FLAG_AT). */
   credentialId: Buffer | null;
   coseKey: CborMap | null;
 }
 
 // --- registration -------------------------------------------------------------
 
-/**
- * Check a `navigator.credentials.create()` result and return the credential to
- * store. Throws WebAuthnError on anything that doesn't line up — the caller
- * logs the reason and tells the member only that it didn't work.
- */
+/** Throws WebAuthnError; the caller logs the reason and tells the member only that it failed. */
 export function verifyRegistration(
   response: RegistrationResponse,
   expected: Expectations,
@@ -140,8 +121,7 @@ export function verifyRegistration(
     throw new WebAuthnError("registration carried no credential");
   }
 
-  // The id the browser reports and the one the authenticator signed must agree,
-  // or we would file the key under a name it does not answer to.
+  // Else the key would be filed under a name it does not answer to.
   const credentialId = auth.credentialId.toString("base64url");
   if (credentialId !== response.id) {
     throw new WebAuthnError("credential id does not match the attested one");
@@ -160,11 +140,7 @@ export function verifyRegistration(
 
 // --- assertion ----------------------------------------------------------------
 
-/**
- * Check a `navigator.credentials.get()` result against the stored credential.
- * The caller has already looked the credential up by `response.id`, which is
- * what makes this usernameless: the member types nothing at all.
- */
+/** The caller looked the credential up by `response.id`, which makes sign-in usernameless. */
 export function verifyAssertion(
   response: AssertionResponse,
   expected: Expectations,
@@ -185,8 +161,7 @@ export function verifyAssertion(
   const key = publicKeyFromDer(stored.publicKey);
   let ok: boolean;
   try {
-    // The key type picks the scheme: ECDSA/SHA-256 for ES256 (DER-encoded
-    // signature, which is what authenticators emit), PKCS#1 v1.5 for RS256.
+    // The key type picks the scheme: ECDSA/SHA-256 (DER signature) for ES256, PKCS#1 v1.5 for RS256.
     ok = verify("sha256", signed, key, signature);
   } catch {
     // Malformed signature bytes make node throw rather than return false.
@@ -194,9 +169,8 @@ export function verifyAssertion(
   }
   if (!ok) throw new WebAuthnError("signature did not verify");
 
-  // Counters are optional: authenticators that don't keep one report 0 forever,
-  // and this check stays dormant. One that does keep a counter and goes
-  // backwards has been cloned, which is worth refusing over.
+  // Authenticators without a counter report 0 forever, leaving this dormant; one that goes
+  // backwards has been cloned.
   if (stored.signCount > 0 && auth.signCount <= stored.signCount) {
     throw new WebAuthnError("sign count went backwards — the credential may have been cloned");
   }
@@ -219,8 +193,7 @@ export function parseAuthenticatorData(data: Buffer): AuthenticatorData {
   let credentialId: Buffer | null = null;
   let coseKey: CborMap | null = null;
   if (flags & FLAG_AT) {
-    // 16 bytes of aaguid — the authenticator's make and model. Skipped on
-    // purpose: see the note on attestation at the top of this file.
+    // Skip the 16-byte aaguid (make and model) on purpose.
     if (data.length < offset + 18) throw new WebAuthnError("attested credential data is truncated");
     offset += 16;
     const idLength = data.readUInt16BE(offset);
@@ -235,8 +208,7 @@ export function parseAuthenticatorData(data: Buffer): AuthenticatorData {
     offset = key.offset;
   }
 
-  // We request no extensions, so nothing should follow. If an authenticator
-  // sends some anyway it says so in the flags, and the bytes are ignored.
+  // We request no extensions; if some arrive anyway the flags say so and the bytes are ignored.
   if (!(flags & FLAG_ED) && offset !== data.length) {
     throw new WebAuthnError("trailing bytes after authenticator data");
   }
@@ -253,7 +225,6 @@ export function parseAuthenticatorData(data: Buffer): AuthenticatorData {
   };
 }
 
-/** Turn the COSE key from an authenticator into something node can verify with. */
 function coseToPublicKey(cose: CborMap): { key: KeyObject; alg: number } {
   const kty = intField(cose, 1, "kty");
   const alg = intField(cose, 3, "alg");
@@ -292,10 +263,7 @@ function coseToPublicKey(cose: CborMap): { key: KeyObject; alg: number } {
   throw new WebAuthnError(`unsupported key algorithm ${alg}`);
 }
 
-/**
- * Parse and check clientDataJSON, returning its raw bytes — the signature is
- * over a hash of exactly those bytes, so they can't be re-serialized.
- */
+/** Returns the raw bytes: the signature covers exactly those, so they can't be re-serialized. */
 function checkClientData(encoded: string, type: string, expected: Expectations): Buffer {
   const raw = fromBase64url(encoded, "clientDataJSON");
   let data: Record<string, unknown>;
@@ -360,10 +328,7 @@ function trimLeadingZeros(buf: Buffer): Buffer {
   return buf.subarray(start);
 }
 
-/**
- * Malformed CBOR is a browser sending junk, not a fault on our side — the same
- * thing every other check in this file reports, so it reports it the same way.
- */
+/** Malformed CBOR is a browser sending junk, reported like every other check. */
 function decode<T>(read: () => T): T {
   try {
     return read();
@@ -378,10 +343,7 @@ function sha256(data: Buffer): Buffer {
   return createHash("sha256").update(data).digest();
 }
 
-/**
- * Strict base64url: node's decoder silently ignores characters it doesn't
- * recognise, which would let two different strings name the same credential.
- */
+/** Strict: node's decoder ignores unknown characters, so two strings could name one credential. */
 function fromBase64url(value: string, field: string): Buffer {
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) {
     throw new WebAuthnError(`${field} is not base64url`);
@@ -390,14 +352,9 @@ function fromBase64url(value: string, field: string): Buffer {
 }
 
 // --- ceremony options ---------------------------------------------------------
-//
-// What the server hands the browser to start each ceremony. Pure derivation
-// from the relying party, the challenge, and who is at the keyboard — so it
-// lives here beside its tests rather than inline in a server action, where the
-// two copies it replaced had already begun to drift.
 
 export interface PasskeyRegistrationOptions {
-  /** Where the server expects the ceremony to happen; the client checks it matches. */
+  /** The client checks it matches. */
   origin: string;
   challenge: string;
   rp: { id: string; name: string };
@@ -421,10 +378,10 @@ export function registrationOptions(input: {
   rp: { id: string; name: string };
   origin: string;
   challenge: string;
-  /** The member id, opaque to the authenticator, which stores it as the user handle. */
+  /** Stored by the authenticator as the user handle. */
   memberId: string;
   displayName: string;
-  /** Credential ids this member already holds; no device needs to enrol twice. */
+  /** So no device enrols twice. */
   exclude?: string[];
 }): PasskeyRegistrationOptions {
   return {
@@ -462,20 +419,16 @@ export function signInOptions(input: {
 // --- the relying party --------------------------------------------------------
 
 export interface RelyingParty {
-  /** The domain a credential is scoped to: no scheme, no port. */
   rpId: string;
   origin: string;
-  /** False when no browser will register a passkey here at all. */
   usable: boolean;
-  /** Why not, for the log and for the message the member sees. */
+  /** For the log and the member's message. */
   reason: string | null;
 }
 
 /**
- * Read the relying party out of a base URL. Two things stop passkeys working,
- * and both surface in the browser as a bare SecurityError that says nothing:
- * an rp id must be a *domain name*, so an IP literal can never be one, and the
- * page must be a secure context — https anywhere, or localhost.
+ * Two things stop passkeys, both surfacing as a bare SecurityError: an rp id must be a domain
+ * name (not an IP), and the page must be a secure context (https, or localhost).
  */
 export function relyingPartyFrom(baseUrl: string): RelyingParty {
   const url = new URL(baseUrl);

@@ -5,12 +5,8 @@ import { SpeechError, say, speakEnabled } from "@/lib/speech";
 import { MAX_UTTERANCE, pairFor, type Side, speakerOf } from "@/lib/talk";
 
 /**
- * Words in, a spoken clip back, for the phones with no local voice installed.
- *
- * Streamed straight to the tab that asked and never stored — the response is
- * played through an <audio> element and dropped. Nothing here offers a
- * download: a voice note in this app is something you hold out to someone, not
- * a file you keep.
+ * Words in, a spoken clip back, for phones with no local voice. Streamed to the asking tab and
+ * never stored; nothing offers a download.
  */
 export async function POST(request: Request) {
   const session = await getSession();
@@ -21,9 +17,8 @@ export async function POST(request: Request) {
   const asked = body as { tripId?: unknown; text?: unknown; side?: unknown } | null;
   const text = typeof asked?.text === "string" ? asked.text.trim() : "";
   if (!text) return new Response("Nothing to say.", { status: 400 });
-  // Which language the words are in, so a cross-lingual voice reads them right.
-  // The browser says only which side is speaking; which language that is is
-  // the trip's configuration, the same trade interpretAction makes.
+  // The browser names only the side; the language is the trip's configuration, as in
+  // interpretAction.
   const side: Side = asked?.side === "them" ? "them" : "us";
   const ctx =
     typeof asked?.tripId === "string" ? await tripFor(session.memberId, asked.tripId) : null;

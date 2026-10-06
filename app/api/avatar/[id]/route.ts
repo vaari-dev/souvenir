@@ -1,9 +1,8 @@
 import { getSession } from "@/lib/auth";
 import { getAvatar } from "@/lib/data";
 
-// Serves uploaded profile pictures. The game is private, so avatars are too:
-// no session, no bytes. URLs carry a ?v= stamp (components render them via
-// avatarSrc), so the response can be cached hard.
+// Uploaded profile pictures: no session, no bytes. URLs carry a ?v= stamp (avatarSrc), so
+// responses cache hard.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) return new Response("Sign in first.", { status: 401 });

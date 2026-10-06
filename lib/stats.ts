@@ -1,17 +1,10 @@
-// Pure accounting over a replayed market: what each member ended up with, and
-// the roll-ups the pages show — results, the season's rivalries, its biggest
-// swings. No I/O; lib/replay hands it markets and lib/stats.test.ts pins the
-// behavior. Settlement itself lives in lib/engine.ts; this file is everything
-// downstream of it.
+// Accounting over a replayed market: what each member ended up with, and the roll-ups the pages
+// show. Settlement itself is lib/engine.ts; this is everything downstream of it.
 
 import { exposure, type Side } from "./engine.ts";
 import type { MarketState } from "./replay.ts";
 
-/**
- * Per-participant outcome of one market: final side and stake, plus what the
- * settlement that stands gave back. A reopened market has no settlement, so
- * nothing has come back — which is exactly the case.
- */
+// A reopened market has no settlement, so nothing has come back.
 export interface MemberOutcome {
   side: Side;
   stakeC: number;
@@ -43,14 +36,10 @@ export interface MarketResult {
   stakeC: number;
   returnedC: number;
   profitC: number;
-  noContest: boolean; // voided or auto-refunded: stake returned, no stats impact
+  noContest: boolean; // voided or auto-refunded
 }
 
-/**
- * One member's result in one resolved market. A refund — whether the market
- * was voided or the winning side was empty — means no contest: the stake came
- * back and the market carries no skill signal.
- */
+// A refund (voided, or the winning side was empty) is no contest: no skill signal.
 export function toResult(market: MarketState, outcome: MemberOutcome): MarketResult {
   const noContest = market.status === "refunded" || outcome.refundC > 0;
   return {
@@ -63,7 +52,6 @@ export function toResult(market: MarketState, outcome: MemberOutcome): MarketRes
   };
 }
 
-/** Pure roll-up of a member's resolved results, for profile/home stat strips. */
 export function summarizeResults(results: MarketResult[]) {
   const contested = results.filter((r) => !r.noContest);
   const wageredC = contested.reduce((s, r) => s + r.stakeC, 0);
@@ -81,29 +69,17 @@ export function summarizeResults(results: MarketResult[]) {
 }
 
 // ---------- the season ----------
-//
-// A trip is a season, and what a season leaves behind is not only a table but
-// rivalries: who kept taking the other side of whom, and who came out of it
-// ahead. Everything below is derived from per-market outcomes the way the
-// leaderboard is; nothing is stored.
 
-/** Two members who have stood on opposite sides of a resolved prediction. */
+// Two members who stood on opposite sides of a resolved prediction.
 export interface Rivalry {
   a: string;
   b: string;
-  /** Contested predictions where they disagreed. */
   clashes: number;
-  /** How many of those `a` won. */
   aWins: number;
-  /** How many `b` won. */
   bWins: number;
 }
 
-/**
- * Every pair who disagreed on at least one contested prediction, most clashes
- * first. Each entry is one resolved market's outcomes with its status, so
- * no-contest markets drop out — a refund is nobody's win.
- */
+// Most clashes first. No-contest markets drop out: a refund is nobody's win.
 export function rivalries(
   markets: { status: MarketState["status"]; outcomes: Map<string, MemberOutcome> }[],
 ): Rivalry[] {
@@ -130,10 +106,7 @@ export function rivalries(
   );
 }
 
-/**
- * One member's nemesis: whoever has beaten them most often across the table,
- * ties broken by how often they have met. Null until somebody has.
- */
+// Whoever has beaten them most, ties by how often they met. Null until somebody has.
 export function nemesisOf(memberId: string, all: Rivalry[]): Rivalry | null {
   let best: Rivalry | null = null;
   let bestLosses = 0;
@@ -149,7 +122,6 @@ export function nemesisOf(memberId: string, all: Rivalry[]): Rivalry | null {
   return best;
 }
 
-/** The other member in a rivalry, seen from `memberId`. */
 export function rivalOf(
   memberId: string,
   r: Rivalry,
@@ -159,7 +131,6 @@ export function rivalOf(
     : { id: r.a, wins: r.bWins, losses: r.aWins };
 }
 
-/** The single biggest swing of the season, for the recap card. */
 export interface Superlative {
   memberId: string;
   marketId: string;

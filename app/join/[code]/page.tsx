@@ -10,9 +10,8 @@ import { routes, signInThen } from "@/lib/routes";
 import { currentMember } from "@/lib/session";
 import { DESTINATIONS } from "@/lib/talk";
 
-// Reachable signed out by anyone holding the link: the code is a bearer token,
-// short-lived and revocable because of it (lib/invites.ts). The preview and the
-// trip's key ride in the fragment, opened on the phone.
+// Signed-out reachable: the code is a bearer token, hence short-lived and revocable
+// (lib/invites.ts). The preview and the trip's key ride in the fragment.
 export default async function JoinPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const [invite, me] = await Promise.all([findInvite(code), currentMember()]);

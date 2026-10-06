@@ -3,7 +3,6 @@
 import { TripForm, type TripFormInitial } from "./trip-form";
 import { useOpenTrip } from "./trip-store";
 
-/** The settings page under the gate: the name is the store's, the rest the server's. */
 export function TripSettings({
   trip,
   sub,

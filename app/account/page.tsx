@@ -8,10 +8,7 @@ import { listPasskeySummaries, listTrips } from "@/lib/data";
 import { fmtDate } from "@/lib/format";
 import { requireMember } from "@/lib/session";
 
-/**
- * The member, apart from any trip: how they sign in, what the app calls them,
- * how it talks to them, and the door out.
- */
+/** The member apart from any trip: sign-in, name, lingo, and the door out. */
 export default async function AccountPage() {
   const me = await requireMember();
   const [passkeys, trips] = await Promise.all([listPasskeySummaries(me.id), listTrips(me.id)]);

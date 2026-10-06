@@ -9,8 +9,7 @@ import { routes } from "@/lib/routes";
 import { currentMember } from "@/lib/session";
 import { DESTINATIONS } from "@/lib/talk";
 
-// Reachable by URL alone, on purpose (AGENTS.md): exactly what a member's phone
-// put in `cards` when they tapped share, and nothing else exists to show.
+// Reachable by URL alone, on purpose (AGENTS.md): only what a member's phone put in `cards`.
 export async function generateMetadata({
   params,
 }: {

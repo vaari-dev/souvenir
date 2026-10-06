@@ -1,6 +1,5 @@
-// Demo data for local development: one sealed trip, four members, open
-// predictions with positions and settled history, and one key link per member
-// to open signed in as them. Run with: pnpm seed   (uses .env; run migrations first)
+// Dev demo data: one sealed trip, four members, open and settled predictions, and a key link
+// per member. Run with: pnpm seed   (uses .env; migrate first)
 
 import { randomUUID } from "node:crypto";
 import { createTrip, ensureMember } from "../lib/data.ts";

@@ -11,7 +11,6 @@ import {
   toResult,
 } from "./stats.ts";
 
-/** A market as replay leaves it: positions per member and the settlement that stands. */
 function market(
   over: Partial<Omit<MarketState, "positions" | "settlement">> = {},
   stakes: Array<[string, Side, number]> = [],

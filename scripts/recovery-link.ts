@@ -1,16 +1,12 @@
-// The failsafe. Mints a recovery link straight against the database, for the
-// one situation the app itself cannot answer: nobody who could mint one can
-// sign in — every organiser has lost their passkeys too, and there is no way
-// back into the table from any browser.
+// Failsafe: mints a recovery link straight against the database for when no organiser can
+// sign in either.
 //
-// This is not a backdoor so much as an admission of where the trust already
-// sits: whoever can run this holds DATABASE_URL, and could write the
-// credentials row by hand. What it adds is that they don't have to, and that
-// the link it prints is spent, timed, and announced on the members page like
-// any other — `minted_by` is null, and the table is told it came from here.
+// Not a backdoor: whoever runs this holds DATABASE_URL and could write a credentials row by
+// hand. The link it prints is spent, timed and announced on the members page like any other;
+// `minted_by` is null, so the table is told it came from here.
 //
 // Run with: node --env-file-if-exists=.env scripts/recovery-link.ts "Priya"
-// (a member's name, or their id). Then read the URL down the phone.
+// (a member's name, or their id).
 
 import { isNull } from "drizzle-orm";
 import { mintRecoveryFromConsole } from "../lib/data.ts";
@@ -38,8 +34,7 @@ async function main() {
   const lower = query.toLowerCase();
   const matches = everyone.filter((m) => m.id === query || m.name.toLowerCase() === lower);
   if (matches.length === 0) fail(`No member called "${query}". Run with no argument to list them.`);
-  // Names are distinct per trip (lib/mentions.ts), not across the world, so
-  // this is the wrong place to assume it: handing the link to the wrong seat is unrecoverable.
+  // Names are distinct per trip, not globally; the wrong seat getting the link is unrecoverable.
   if (matches.length > 1) {
     fail(
       `More than one member matches "${query}" — pass the id instead:\n${matches.map((m) => `  ${m.name}  (${m.id})`).join("\n")}`,

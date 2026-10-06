@@ -1,15 +1,12 @@
-// Mention parsing for comments: "@" followed by a member's full name or first
-// name, case-insensitive, longest match wins. Mentions are resolved against
-// the member list at write time and stored as comment_mentions rows (like
-// bill_entries snapshot their split), so a later rename never rewrites who
-// was tagged. Pure data in, pure data out — lib/data.ts does the I/O.
+// "@" followed by a member's full or first name, case-insensitive, longest match wins. Resolved
+// at write time and stored as the comment's mentions, so a later rename never rewrites who was
+// tagged.
 
 export interface Mentionable {
   id: string;
   name: string;
 }
 
-/** One "@…" occurrence in a body and every member it could mean. */
 interface MentionMatch {
   start: number;
   end: number;
@@ -20,7 +17,6 @@ function isWordChar(ch: string | undefined): boolean {
   return ch !== undefined && /[\p{L}\p{N}]/u.test(ch);
 }
 
-/** The spellings that summon a member: full name, and first name if shorter. */
 function candidatesOf(member: Mentionable): string[] {
   const name = member.name.trim();
   if (!name) return [];
@@ -45,8 +41,7 @@ function scan(body: string, members: Mentionable[]): MentionMatch[] {
           bestLength = candidate.length;
           memberIds = [member.id];
         } else if (!memberIds.includes(member.id)) {
-          // A shared first name tags everyone it could mean — better a spare
-          // notification than a missed one.
+          // A shared first name tags everyone it could mean: a spare notification beats a missed one.
           memberIds.push(member.id);
         }
       }
@@ -59,7 +54,6 @@ function scan(body: string, members: Mentionable[]): MentionMatch[] {
   return matches;
 }
 
-/** Ids of every member the body tags, in order of first appearance. */
 export function parseMentions(body: string, members: Mentionable[]): string[] {
   const seen = new Set<string>();
   for (const match of scan(body, members)) {
@@ -70,14 +64,10 @@ export function parseMentions(body: string, members: Mentionable[]): string[] {
 
 export interface BodySegment {
   text: string;
-  /** Set when this segment is a mention of that member. */
   memberId?: string;
 }
 
-/**
- * Split a body into plain and mention segments for rendering, re-matching
- * only against the members actually stored as tagged on the comment.
- */
+// Re-matches only against the members stored as tagged on the comment.
 export function segmentBody(body: string, mentioned: Mentionable[]): BodySegment[] {
   const segments: BodySegment[] = [];
   let cursor = 0;

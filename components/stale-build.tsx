@@ -1,18 +1,10 @@
 "use client";
 
-// The page has been open across a deploy. Every server action is named by a
-// hash of the build it was compiled in, so the names this bundle knows are
-// gone the moment a new image is running: the action 404s and the call
-// rejects with Next's UnrecognizedActionError. Nothing is broken and nothing
-// posted is lost — the phone is talking to a server that no longer speaks its
-// build, and only a reload fixes that, since retrying runs the same stale
-// bundle at the same missing name. Next's own log line for it is a warning,
-// not an error, for the same reason.
-//
-// Whoever meets one says so here, and the bar below is the one place it is
-// said, once, for the whole page. Plain language in every lingo: a notice,
-// not flavour. The reload is the member's tap and not ours — a phone halfway
-// through a line of table talk should not lose it to a page load.
+// The page has been open across a deploy. Server action names hash the build, so a new image
+// makes this bundle's actions 404 (Next's UnrecognizedActionError). Nothing posted is lost, but
+// only a reload helps: a retry hits the same missing name. The bar says so once for the page, in
+// plain language in every lingo. The reload is the member's tap, so a half-typed line of table
+// talk is not lost to a page load.
 
 import { unstable_isUnrecognizedActionError } from "next/navigation";
 import { useSyncExternalStore } from "react";

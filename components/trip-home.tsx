@@ -34,7 +34,6 @@ export function TripHome({
   const myStats = summarizeResults(results);
   const profitByMarket = new Map(results.map((r) => [r.market.id, r.profitC]));
 
-  // The first questions every trip argues about, offered until the table has a few of its own.
   const drafts =
     open.length + resolved.length < 3
       ? starters({

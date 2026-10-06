@@ -13,9 +13,8 @@ export async function GET(request: NextRequest) {
   }
   const intent = await takeSignInIntent();
 
-  // No picture is taken: avatars are generated from the member's initials
-  // (lib/avatar.ts), so a googleusercontent URL would be a third-party
-  // identifier collected for nothing.
+  // No picture: avatars are monograms (lib/avatar.ts), and a googleusercontent URL would be a
+  // third-party identifier collected for nothing.
   try {
     const { member, created } = await ensureMember(profile.email, profile.name, {
       termsAccepted: intent.agreed,

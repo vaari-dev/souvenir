@@ -72,7 +72,7 @@ describe("keyring", () => {
   it("encodes and decodes losslessly", async () => {
     const kr = withTripKey(emptyKeyring(), "t1", 0, await rawKey());
     expect(decodeKeyring(encodeKeyring(kr))).toEqual(kr);
-    // Old blobs carried the secrets of links this phone minted; they parse, minus that.
+    // Old blobs carry link secrets; they parse, minus that.
     expect(parseKeyring({ ...kr, links: { c: "s" } })).toEqual(kr);
   });
 

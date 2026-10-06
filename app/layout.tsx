@@ -21,9 +21,7 @@ import { routes } from "@/lib/routes";
 import { currentMember } from "@/lib/session";
 import "./globals.css";
 
-// Next has no metrics for Big Shoulders and warns every build that it is
-// skipping the fallback it cannot synthesise. Name one — it lands in
-// `--font-big-shoulders`, which is the whole stack globals.css then uses.
+// Next has no metrics for Big Shoulders and warns each build; naming a fallback quiets it.
 const display = Big_Shoulders({
   subsets: ["latin"],
   variable: "--font-big-shoulders",
@@ -40,8 +38,7 @@ const mono = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  // Without a base, Next resolves og:image and friends against localhost —
-  // this deploy is standalone, so no platform env fills one in.
+  // Standalone deploy: no platform env supplies a base, so og:image would resolve to localhost.
   metadataBase: new URL(env.AUTH_URL),
   title: { default: "Souvenir", template: "%s · Souvenir" },
   description:

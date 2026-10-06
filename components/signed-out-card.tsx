@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { routes } from "@/lib/routes";
 
-/** The card every signed-out page is: sign in, join by invite, recover a seat. */
 export function SignedOutCard({
   eyebrow,
   children,
@@ -25,7 +24,6 @@ export function SignedOutCard({
   );
 }
 
-/** A link that leads nowhere — spent, expired, or meant for somebody else. */
 export function SignedOutNotice({
   eyebrow,
   children,
@@ -48,7 +46,6 @@ export function SignedOutNotice({
   );
 }
 
-/** Why a code did not open: spent, lapsed, or never one. */
 export function deadLink(state: string | null, what = "link", expiredHint = ""): string {
   if (state === "used") return `That ${what} has already been used.`;
   if (state === "expired")
