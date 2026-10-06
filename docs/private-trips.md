@@ -46,7 +46,7 @@ Verification is on request, not public, so the repository may be private.
    and have clients silently encrypt to it, because nothing ever encrypts to
    a key the server handed over.
 3. **The server is a sealed, ordered, append-only log.** It enforces the
-   seat, the order, the size, the rate and the key epoch, never content.
+   seat, the order, the size and the key epoch, never content.
    Everything is derived by replay.
 4. **The rules are code every phone runs.** Cap, one side per prediction,
    zero-sum settlement, who may resolve, one slug per phrase: deterministic
@@ -131,7 +131,7 @@ id) is a replay rule: the *first* event to claim it wins. No blind indexes.
 
 - `events(id, trip_id, author_id, at, epoch, seq, body)`: append-only,
   `(trip_id, seq)` unique. The server checks the author holds a seat,
-  `epoch = trips.key_epoch`, `length(body) ≤ 16 KiB`, a per-member rate.
+  `epoch = trips.key_epoch`, `length(body) ≤ 16 KiB`.
   `seq` is assigned under the trip row's lock, so it is both order and
   commit order.
 - `keyring_wraps(credential_id pk, member_id, wrapped_kk)`: the keyring
@@ -207,7 +207,7 @@ than showing an empty table.
 
 The client builds a payload, runs the rules over its own log (so a refusal
 reaches the person tapping), encrypts under TK[cur] and calls
-`appendEvent(tripId, envelope)`. The server checks seat, epoch, size, rate
+`appendEvent(tripId, envelope)`. The server checks seat, epoch, size
 and inserts under the trip lock. The client applies it optimistically and
 reconciles on the next fetch; `seq` is the order, replay decides.
 
@@ -293,7 +293,7 @@ trip's pair (`pairFor`).
 |---|---|
 | sign-in, sessions, passkey verification, Google | read a question, a call, a stamp, a comment, a bill, a phrase |
 | seats, roles, name distinctness, terms, 18+ | enforce the cap, one-side, zero-sum, resolution authority |
-| order events, cap size, rate-limit, enforce epoch | render a card or a join preview unaided |
+| order events, cap size, enforce epoch | render a card or a join preview unaided |
 | invites, recoveries, rekeys: TTL, single use, revocation | seat a *reading* intruder by itself |
 | `pnpm stats`: trips, rosters, founding rate | `pnpm seed` without a printed key link; polish a draft it has not been sent |
 | serve the client, the OG image, the avatars | moderate content (it never did) |
@@ -314,7 +314,7 @@ signed-cookie session, `requireTrip`, append-only everything.
 | Key loss on a device (Safari evicts IndexedDB after 7 days idle for non-installed sites) | Three layers: other device, anyone on the trip, passkey PRF (§4.8). Nudge PWA install on iOS |
 | Ghost device inserted by a malicious server | Impossible by construction: keys are only encrypted to the reader's own device, a link secret, or an MK public key read from the sealed log |
 | A modified client submits rule-breaking events | Every honest client's replay drops them |
-| Garbage events (storage DoS) | Seat required, 16 KiB cap, per-member rate |
+| Garbage events (storage DoS) | Seat required, 16 KiB cap |
 | Malicious deploy | Attested build naming its commit; source on request |
 | A rule bug ships to phones, not a server | Rules are versioned in the envelope; a fix is a new client and a re-replay, never a data migration |
 
