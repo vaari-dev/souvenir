@@ -319,6 +319,9 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
   (`next.config.ts` `outputFileTracingIncludes`).
 - Honor pnpm's `minimumReleaseAge`: pin an older version if an install fails on
   a too-fresh package — never add exclusions without the owner's approval.
+  Likewise `trustPolicy`.
+- Every action is pinned to a commit SHA (`# vX.Y.Z` alone after it) and every
+  image to a digest; Dependabot (`.github/dependabot.yml`) moves them.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

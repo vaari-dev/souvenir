@@ -4,8 +4,7 @@ packages:
 allowBuilds:
   esbuild: true
 
-onlyBuiltDependencies:
-  - esbuild
+trustPolicy: no-downgrade
 
 # npm-style flat node_modules. Next.js standalone output traces files from
 # node_modules; the hoisted layout keeps that working identically in local
