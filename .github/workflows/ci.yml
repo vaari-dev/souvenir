@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Weekly, with no code change: rebuild on the base image's latest patch and deploy it with the
+  # latest Postgres 18. This is how OS and runtime security fixes reach the box. GitHub turns a
+  # schedule off after 60 days without a commit; merging Dependabot's weekly PR keeps it on.
+  schedule:
+    - cron: "17 2 * * 1" # Monday 07:47 IST
 
 permissions:
   contents: read
@@ -67,8 +72,9 @@ jobs:
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           echo "epoch=$(git log -1 --format=%ct)" >> "$GITHUB_OUTPUT"
       # Reproducible where the tooling allows: build id and layer timestamps are the commit's,
-      # and the image carries its sha for /privacy. A member checks the attestation with
-      # `gh attestation verify oci://<image>:<tag> --owner <owner>`.
+      # and the image carries its sha for /privacy. The base image floats (Dockerfile), so a
+      # rebuild matches only on the base digest the provenance records. A member checks the
+      # attestation with `gh attestation verify oci://<image>:<tag> --owner <owner>`.
       #
       # No layer cache: `rewrite-timestamp` stamps every layer with the commit date, so nothing
       # exported is reusable and `cache-to` only cost time. Check the log for `CACHED` before
@@ -80,6 +86,7 @@ jobs:
           SOURCE_DATE_EPOCH: ${{ steps.meta.outputs.epoch }}
         with:
           context: .
+          pull: true
           platforms: linux/arm64
           outputs: ${{ env.PUSH == 'true' && 'type=image,push=true,rewrite-timestamp=true' || 'type=cacheonly' }}
           build-args: |
@@ -203,8 +210,19 @@ jobs:
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           export APP_IMAGE
-          docker compose pull app
-          docker compose up -d --no-build app
+          docker compose pull --quiet
+
+          # A restore point before anything moves: migrations are forward-only, and a newer
+          # Postgres image replaces the db container. Kept 30 days.
+          mkdir -p backups
+          if [ -n "$(docker compose ps --status running --quiet db)" ]; then
+            dump="backups/$(date -u +%Y%m%dT%H%M%SZ)-${SHA::7}.dump"
+            docker compose exec -T db pg_dump -U souvenir -Fc souvenir > "$dump"
+            find backups -name '*.dump' -mtime +30 -delete
+            echo "restore point: $DEPLOY_DIR/$dump"
+          fi
+
+          docker compose up -d --no-build
 
           # `up -d` returns on start, not on serving: a boot-then-crash would deploy green. Poll
           # /signin (needs no session) and fail with logs if it never answers.

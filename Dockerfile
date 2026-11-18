@@ -1,4 +1,7 @@
-FROM node:26.12.1-alpine@sha256:40cd011b55415bc894e45b02fdd5a5dfde056921b7d23a64c74f80497af48797 AS node
+# A major and a variant, not a digest: every build takes the tag's latest rebuild, which is how
+# Alpine's and Node's patches arrive (the weekly scheduled run in ci.yml). The digest each build
+# used is in its provenance attestation.
+FROM node:26-alpine AS node
 
 FROM node AS pnpm
 WORKDIR /app

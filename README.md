@@ -206,8 +206,11 @@ compiles `lingo.yaml` (`dev` and `build` run it).
 ## Deployment (OCI over SSH)
 
 Push to `main`: verify → build and push one arm64 GHCR image (`:short-sha` +
-`:latest`) → SSH to the OCI box, pull the pinned tag, `docker compose up -d`
-(one-shot `migrate`, then `app`).
+`:latest`) → SSH to the OCI box, pull it by digest and the latest Postgres 18,
+dump the database into `backups/`, `docker compose up -d` (one-shot
+`migrate`, then `app`). The same runs every Monday with no code change, so the
+base images' patches reach the box (`docs/launch/deploy-checklist.md`,
+_Updates_).
 
 Configure a GitHub **environment named `oracle-cloud`**:
 

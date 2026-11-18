@@ -327,8 +327,14 @@ Pre-commit (husky): biome on staged files, tsc, full test suite.
 - Honor pnpm's `minimumReleaseAge`: pin an older version if an install fails on
   a too-fresh package — never add exclusions without the owner's approval.
   Likewise `trustPolicy`.
-- Every action is pinned to a commit SHA (`# vX.Y.Z` alone after it) and every
-  image to a digest; Dependabot (`.github/dependabot.yml`) moves them.
+- Every action is pinned to a full commit SHA (`# vX.Y.Z` alone after it),
+  and Dependabot (`.github/dependabot.yml`) moves them with npm in one weekly
+  PR, merged by a person. Images are the exception, on purpose: they name a
+  major and a variant (`node:26-alpine`, `postgres:18-bookworm`), never a
+  digest, and the weekly scheduled run of `ci.yml` rebuilds and redeploys on
+  them — that is how OS and runtime patches arrive. Each build's provenance
+  records the base digest it used. A major (Node, Postgres, the Debian
+  release under Postgres) is a deliberate change, never a pull.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
