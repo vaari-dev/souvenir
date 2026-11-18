@@ -1,5 +1,7 @@
-# Not read by Dependabot, so bumped by hand: packageManager (with the Dockerfile's pnpm) and the
-# workflows' node-version (with the Dockerfile's Node).
+# npm and actions only. Images are not here: they float on a major and a variant (Dockerfile,
+# docker-compose.yml), and the weekly scheduled run in ci.yml rebuilds and redeploys on them.
+# Bumped by hand: packageManager (with the Dockerfile's pnpm), and any major — Node's in the
+# Dockerfile and the workflows' node-version, Postgres's by runbook.
 
 version: 2
 
@@ -22,21 +24,3 @@ updates:
     multi-ecosystem-group: dependencies
     cooldown:
       default-days: 7
-
-  - package-ecosystem: docker
-    directory: /
-    patterns: ["*"]
-    multi-ecosystem-group: dependencies
-    cooldown:
-      default-days: 7
-
-  - package-ecosystem: docker-compose
-    directory: /
-    patterns: ["*"]
-    multi-ecosystem-group: dependencies
-    cooldown:
-      default-days: 7
-    ignore:
-      # A major needs pg_upgrade on the data volume.
-      - dependency-name: postgres
-        update-types: ["version-update:semver-major"]

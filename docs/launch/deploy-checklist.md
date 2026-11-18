@@ -1,19 +1,22 @@
 # Deploy checklist
 
 Pushing to `main` is the deploy: CI runs the gates, builds one arm64 image,
-and over SSH pulls it on the box and runs `docker compose up -d` — the
+and over SSH pulls it and Postgres on the box, dumps the database into
+`$DEPLOY_DIR/backups/` (kept 30 days), and runs `docker compose up -d` — the
 one-shot `migrate` service against the live database, then `app`
-(`README.md`, _Deployment_). The box's `.env` is **rendered on every deploy
+(`README.md`, _Deployment_). The same run fires every Monday on its own, with
+no code change, to pick up the base images' patches (_Updates_ below). The box's `.env` is **rendered on every deploy
 from the GitHub environment `oracle-cloud`** (`.github/workflows/ci.yml`):
 a variable lives there or nowhere, and editing the file on the box lasts
 until the next push. Nothing here needs a hand on the running containers;
-what needs a hand is that environment, and a backup when the schema moves.
+what needs a hand is that environment.
 
 ## Every release
 
 1. **Read the diff for two things**: a new migration under `drizzle/`, and
    a new or changed variable in `lib/env.ts` (`.env.example` documents each).
-2. **Migration?** Back up first — `docker exec souvenir-db-1 pg_dump -U souvenir souvenir > backup-$(date +%F).sql` on the box. Migrations are forward-only and some have been destructive.
+2. **Migration?** Read it: migrations are forward-only and some have been
+   destructive. The deploy dumps first and names the file in its log.
 3. **New variable?** Add it to `ci.yml`'s `.env` heredoc and set it in the
    `oracle-cloud` environment _before_ pushing; a required one missing stops
    the app at boot (`lib/env.ts` refuses to start), an optional one missing
@@ -22,6 +25,34 @@ what needs a hand is that environment, and a backup when the schema moves.
 5. **Verify**: the footer names the new build (`GIT_SHA`);
    `docker compose run --rm migrate node scripts/stats.ts` still reads the
    trips; open the live trip on a phone that holds the key.
+
+## Updates
+
+- **Images: every Monday, no PR.** The scheduled run rebuilds the app on the
+  latest `node:26-alpine` and deploys it with the latest `postgres:18-bookworm`,
+  dumping first. Nothing to merge; GitHub emails on a failed run. GitHub stops a
+  schedule after 60 days without a commit, so keep merging the weekly PR.
+- **npm and actions: one Dependabot PR a week.** Merge it when CI is green;
+  merging deploys.
+- **Majors are runbooks, never pulls:** Node (the Dockerfile's `FROM` and the
+  workflows' `node-version` together), Postgres (`pg_upgrade`), and the Debian
+  release under Postgres (glibc orders text indexes; dump and restore).
+
+**Going back.** A bad app build: open the last good run in Actions (GitHub
+allows it for 30 days) and re-run its `deploy` job, which deploys that run's
+image by digest. A bad database change, with the dump the deploy's log named:
+
+```sh
+docker compose stop app
+docker compose exec -T db dropdb -U souvenir --force souvenir
+docker compose exec -T db createdb -U souvenir souvenir
+docker compose exec -T db pg_restore -U souvenir -d souvenir \
+  --single-transaction --exit-on-error < backups/<the dump>.dump
+docker compose start app
+```
+
+Restore into a fresh database as above: `pg_restore --clean` drops only what
+the dump contains, so a table added since would survive it.
 
 ## Domain and passkeys
 

@@ -2,14 +2,18 @@
 #
 #   Dev:   docker compose up -d db        (then `pnpm dev`)
 #          docker compose up -d --build   (full stack, built locally)
-#   Prod:  export APP_IMAGE=...   (GHCR tag; CI does this)
-#          docker compose pull app && docker compose up -d --no-build app
+#   Prod:  export APP_IMAGE=...   (GHCR image@digest; CI does this)
+#          docker compose pull && docker compose up -d --no-build
+#          Every deploy pulls Postgres too, so its patches land with the weekly scheduled run.
 #
 # Knobs come from .env (see .env.example).
 
 services:
   db:
-    image: postgres:18-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc
+    # A major and a variant, not a digest. 18 keeps the on-disk format (a major needs
+    # pg_upgrade); bookworm keeps glibc, whose collation orders every text index (a new
+    # distribution needs a dump and restore). Within both, a pull is always safe.
+    image: postgres:18-bookworm
     restart: unless-stopped
     environment:
       POSTGRES_USER: souvenir
