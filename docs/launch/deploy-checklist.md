@@ -23,6 +23,47 @@ what needs a hand is that environment, and a backup when the schema moves.
    `docker compose run --rm migrate node scripts/stats.ts` still reads the
    trips; open the live trip on a phone that holds the key.
 
+## Postgres major upgrade (18 → 19)
+
+A new major cannot open the old one's data: the image keeps each major's
+cluster in its own directory (`/var/lib/postgresql/18/docker`) and refuses
+to start while an older one sits on the volume. So the move is by hand, on
+the box, _before_ the PR that bumps `db` merges: dump, set the 18 cluster
+aside in a volume of its own, restore into 19. Rehearsed on a copy of a
+dev volume: about ten seconds of database work; budget ten minutes of
+downtime for the typing.
+
+```sh
+cd "$DEPLOY_DIR"
+NEW=postgres:19-trixie@sha256:bb6e70add742cd868fb62cb3b2f67d1dd2bdd2b65a521e778420748753687c60
+COUNT="select (select count(*) from trips), (select count(*) from members),
+  (select count(*) from events), (select count(*) from drizzle.__drizzle_migrations)"
+docker pull "$NEW"                                          # before the downtime
+
+docker compose stop app                                     # downtime starts
+docker compose exec -T db psql -U souvenir -d souvenir -Atc "$COUNT" | tee before.txt
+docker compose exec -T db pg_dump -U souvenir -Fc souvenir > pre-19.dump
+docker compose stop db
+docker volume create souvenir_pgdata18
+docker run --rm -v souvenir_pgdata:/v -v souvenir_pgdata18:/keep "$NEW" mv /v/18 /keep/
+sed -i "s|image: postgres:18.*|image: $NEW|" docker-compose.yml
+docker compose up -d --wait db
+docker compose exec -T db pg_restore -U souvenir -d souvenir \
+  --no-owner --exit-on-error --single-transaction < pre-19.dump
+docker compose exec -T db psql -U souvenir -d souvenir -Atc "$COUNT" | tee after.txt
+diff before.txt after.txt && docker compose start app       # downtime ends
+```
+
+Then merge the PR. The deploy writes the same `db` line, so it leaves the
+database alone; `migrate` finds nothing to apply.
+
+**Rollback** (before anyone writes to 19, or lose what they wrote):
+`docker compose stop app db`, `docker run --rm -v souvenir_pgdata:/v -v
+souvenir_pgdata18:/keep alpine mv /keep/18 /v/`, put the 18 image line back
+in `docker-compose.yml`, `docker compose up -d --wait db && docker compose
+start app` — and revert the PR if it merged. After a quiet week:
+`docker volume rm souvenir_pgdata18` and delete `pre-19.dump`.
+
 ## Domain and passkeys
 
 The passkey rp id is `AUTH_URL`'s host, and each phone's keyring is

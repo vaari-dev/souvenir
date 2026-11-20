@@ -128,7 +128,7 @@ prediction — that is what keeps the game a social game under India's PROGA
 ## Stack
 
 Next.js 16 (App Router, server actions) · React 19 · TypeScript 7 ·
-Tailwind CSS 4 · Google OAuth (no auth library) · Postgres 18 · Drizzle ORM ·
+Tailwind CSS 4 · Google OAuth (no auth library) · Postgres 19 · Drizzle ORM ·
 Biome · Vitest · pnpm 12 · Docker. Optional LLM (any Anthropic-compatible API)
 for prediction-draft polish and live interpreting; optional MiniMax
 `/v1/t2a_v2` endpoint for speech.
